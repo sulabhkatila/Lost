@@ -20,19 +20,20 @@ fn main() {
 }
 
 fn run_file(filepath: &String) {
+    // Get the source code from the file
     let source_code = match fs::read_to_string(filepath) {
         Ok(file) => file,
         _ => {
             writeln!(io::stderr(), "`{filepath}` does not exist").unwrap();
-            return;
+            return; // Quit if no file
         }
     };
 
+    // Start interpreting
     run(source_code)
 }
 
 fn run_prompt() {
-    let mut input = String::new();
     loop {
         print!("> ");
         io::stdout().flush().unwrap();
@@ -41,7 +42,6 @@ fn run_prompt() {
         match io::stdin().read_line(&mut new_input) {
             Err(_) => continue,
             Ok(_) => {
-                input.extend(new_input.chars());
                 run(new_input);
             }
         };
@@ -50,5 +50,5 @@ fn run_prompt() {
 
 fn run(code: String) {
     let mut lexer: Lexer = Lexer::new(code);
-    lexer.scan_code();
+    lexer.scan();
 }
