@@ -6,9 +6,29 @@ pub enum ErrorType {
     RunTimeError,
 }
 
-pub struct Error;
+pub struct Error {
+    error_type: ErrorType,
+    message: String,
+    line: usize,
+}
+
 impl Error {
-    pub fn report(error_type: ErrorType, message: String, line: usize) {
-        writeln!(io::stderr(), "{:?}\n{} at line {}", error_type, message, line).unwrap();
+    pub fn new(error_type: ErrorType, message: String, line: usize) -> Error {
+        Error {
+            error_type,
+            message,
+            line,
+        }
+    }
+
+    pub fn report(&self) {
+        writeln!(
+            io::stderr(),
+            "{:?}\n{} at line {}",
+            self.error_type,
+            self.message,
+            self.line
+        )
+        .unwrap();
     }
 }
