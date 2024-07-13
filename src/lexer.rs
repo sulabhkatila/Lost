@@ -196,7 +196,10 @@ impl<'lexer> Lexer<'lexer> {
         let string_literal: String = self.source_code[self.start + 1..self.current]
             .iter()
             .collect();
-        self.add_token(TokenType::String, Some(string_literal));
+        self.add_token(
+            TokenType::String,
+            Some(LiteralType::StringType(string_literal)),
+        );
     }
 
     fn number_literal(&mut self) {
@@ -213,11 +216,18 @@ impl<'lexer> Lexer<'lexer> {
             }
         }
 
-        let num_literal: String = self.source_code[self.start..self.current].iter().collect();
-        self.add_token(TokenType::Number, Some(num_literal))
+        let num_literal: f32 = self.source_code[self.start..self.current]
+            .iter()
+            .collect::<String>()
+            .parse()
+            .unwrap();
+        self.add_token(
+            TokenType::Number,
+            Some(LiteralType::NumberType(num_literal)),
+        )
     }
 
-    fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
+    fn add_token(&mut self, token_type: TokenType, literal: Option<LiteralType>) {
         let text: String = self.source_code[self.start..self.current].iter().collect();
         self.tokens
             .push(Token::new(token_type, text.to_string(), literal, self.line))

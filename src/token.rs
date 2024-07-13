@@ -50,10 +50,16 @@ pub enum TokenType {
 }
 
 #[derive(Debug, Clone)]
+pub enum LiteralType {
+    StringType(String),
+    NumberType(f32),
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<String>,
+    literal: Option<LiteralType>,
     line: usize,
 }
 
@@ -61,7 +67,7 @@ impl Token {
     pub fn new(
         token_type: TokenType,
         lexeme: String,
-        literal: Option<String>,
+        literal: Option<LiteralType>,
         line: usize,
     ) -> Token {
         Token {
