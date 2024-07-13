@@ -51,4 +51,6 @@ fn run_prompt() {
 fn run(code: String) {
     let mut lexer: Lexer = Lexer::new(code);
     lexer.scan();
+
+    println!("{:#?}", lexer.tokens);
 }

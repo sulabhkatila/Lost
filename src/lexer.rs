@@ -1,17 +1,20 @@
 use crate::error::*;
 use crate::token::*;
 
-pub struct Lexer {
+use std::collections::HashMap;
+
+pub struct Lexer<'lexer> {
     pub source_code: Vec<char>,
     pub tokens: Vec<Token>,
     pub start: usize,
     pub current: usize,
     pub line: usize,
     pub errors: Vec<Error>,
+    keywords: HashMap<&'lexer str, TokenType>,
 }
 
-impl Lexer {
-    pub fn new(source_code: String) -> Lexer {
+impl<'lexer> Lexer<'lexer> {
+    pub fn new(source_code: String) -> Lexer<'lexer> {
         Lexer {
             source_code: source_code.chars().collect(),
             tokens: Vec::new(),
@@ -19,6 +22,24 @@ impl Lexer {
             current: 0, // Current == Start in the beginning
             line: 1,    // Begin at line number 1
             errors: Vec::new(),
+            keywords: HashMap::from([
+                ("and", TokenType::And),
+                ("class", TokenType::Class),
+                ("else", TokenType::Else),
+                ("false", TokenType::False),
+                ("for", TokenType::For),
+                ("fun", TokenType::Fun),
+                ("if", TokenType::If),
+                ("nil", TokenType::Nil),
+                ("or", TokenType::Or),
+                ("print", TokenType::Print),
+                ("return", TokenType::Return),
+                ("super", TokenType::Super),
+                ("this", TokenType::This),
+                ("true", TokenType::True),
+                ("var", TokenType::Var),
+                ("while", TokenType::While),
+            ]),
         }
     }
 
@@ -26,7 +47,7 @@ impl Lexer {
         let mut tokens: Vec<Token> = Vec::new();
 
         // Keep scanning for Tokens untill the end of file
-        while self.is_at_end() {
+        while !self.is_at_end() {
             // start holds the start of the current lexeme being scanned
             // current tells the scan_token the position in the lexeme
             self.start = self.current;
@@ -38,7 +59,7 @@ impl Lexer {
         tokens
     }
 
-    fn scan_token(&mut self) -> Result<(), i32> {
+    fn scan_token(&mut self) {
         let c = self.advance(); // Get current char and move current index
         match c {
             // Single Character tokens
@@ -87,6 +108,7 @@ impl Lexer {
             '>' => {
                 // '>=' or '<'
                 let is_greater_equal = self.match_next('=');
+                println!("DID Match: {}", is_greater_equal);
 
                 if is_greater_equal {
                     self.add_token(TokenType::GreaterEqual, None);
@@ -113,8 +135,14 @@ impl Lexer {
 
             c => {
                 if c.is_digit(10) {
+                    // Numeric literals
                     self.number_literal();
+                } else if Self::is_alpha(c) {
+                    // Identifier (user defined and Keywords)
+                    self.identifier();
                 } else {
+                    // Invalid character
+                    // Add the error to the list, main will report
                     self.errors.push(Error::new(
                         ErrorType::CompileTimeError,
                         "Unexpected Token".to_string(),
@@ -123,7 +151,19 @@ impl Lexer {
                 }
             }
         }
-        Ok(())
+    }
+
+    fn identifier(&mut self) {
+        // Assume it is only called when is_alpha is true for first char
+        while Self::is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+
+        let identifier_text: String = self.source_code[self.start..self.current].iter().collect();
+        match self.keywords.get(&identifier_text.as_str()) {
+            Some(val) => self.add_token(val.clone(), None),
+            None => self.add_token(TokenType::Identifier, None),
+        }
     }
 
     fn string_literal(&mut self) {
@@ -169,16 +209,31 @@ impl Lexer {
                 self.advance();
             }
         }
+
+        let num_literal: String = self.source_code[self.start..self.current]
+            .iter()
+            .collect();
+        self.add_token(TokenType::Number, Some(num_literal))
     }
 
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
-        let text: String = self.source_code[self.start..=self.current].iter().collect();
+        let text: String = self.source_code[self.start..self.current].iter().collect();
         self.tokens
             .push(Token::new(token_type, text.to_string(), literal, self.line))
     }
 
+    fn is_alpha(c: char) -> bool {
+        // abc..z + ABC..Z + _
+        c.is_ascii_alphabetic() || c == '_'
+    }
+
+    fn is_alphanumeric(c: char) -> bool {
+        // abc..z + ABC..Z + _ + 0..9
+        Self::is_alpha(c) || c.is_digit(10)
+    }
+
     fn is_at_end(&self) -> bool {
-        self.current < self.source_code.len()
+        self.current >= self.source_code.len()
     }
 
     fn match_next(&mut self, expected_next: char) -> bool {
