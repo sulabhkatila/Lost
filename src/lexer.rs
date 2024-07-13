@@ -43,9 +43,7 @@ impl<'lexer> Lexer<'lexer> {
         }
     }
 
-    pub fn scan(&mut self) -> Vec<Token> {
-        let mut tokens: Vec<Token> = Vec::new();
-
+    pub fn scan(&mut self) {
         // Keep scanning for Tokens untill the end of file
         while !self.is_at_end() {
             // start holds the start of the current lexeme being scanned
@@ -54,9 +52,15 @@ impl<'lexer> Lexer<'lexer> {
             self.scan_token();
         }
 
+        println!("NOW ADDING EOF");
+
         // Add the final Token, denoting the end of file
-        tokens.push(Token::new(TokenType::EOF, String::from(""), None, 10));
-        tokens
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            String::from(""),
+            None,
+            self.line,
+        ));
     }
 
     fn scan_token(&mut self) {
@@ -108,7 +112,6 @@ impl<'lexer> Lexer<'lexer> {
             '>' => {
                 // '>=' or '<'
                 let is_greater_equal = self.match_next('=');
-                println!("DID Match: {}", is_greater_equal);
 
                 if is_greater_equal {
                     self.add_token(TokenType::GreaterEqual, None);
@@ -210,9 +213,7 @@ impl<'lexer> Lexer<'lexer> {
             }
         }
 
-        let num_literal: String = self.source_code[self.start..self.current]
-            .iter()
-            .collect();
+        let num_literal: String = self.source_code[self.start..self.current].iter().collect();
         self.add_token(TokenType::Number, Some(num_literal))
     }
 
