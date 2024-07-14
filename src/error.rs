@@ -1,11 +1,12 @@
 use std::io::{self, Write};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ErrorType {
     LexError,
     ParseError,
 }
 
+#[derive(Debug, Clone)]
 pub struct Error {
     error_type: ErrorType,
     message: String,
