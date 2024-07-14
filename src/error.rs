@@ -2,8 +2,8 @@ use std::io::{self, Write};
 
 #[derive(Debug)]
 pub enum ErrorType {
-    CompileTimeError,
-    RunTimeError,
+    LexError,
+    ParseError,
 }
 
 pub struct Error {
