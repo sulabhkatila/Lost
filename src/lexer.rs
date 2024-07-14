@@ -52,8 +52,6 @@ impl<'lexer> Lexer<'lexer> {
             self.scan_token();
         }
 
-        println!("NOW ADDING EOF");
-
         // Add the final Token, denoting the end of file
         self.tokens.push(Token::new(
             TokenType::EOF,
@@ -130,6 +128,8 @@ impl<'lexer> Lexer<'lexer> {
                         let _ = self.advance();
                         next_char = self.peek();
                     }
+                } else {
+                    self.add_token(TokenType::Slash, None)
                 }
             }
 
