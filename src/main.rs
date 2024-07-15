@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 
 use lost::lexer::lexer::*;
+use lost::parser::astprinter::AstPrinter;
 use lost::parser::parser::*;
 
 fn main() {
@@ -56,8 +57,12 @@ fn run(code: String) {
     let mut parser = Parser::new(lexer.tokens);
     let parsed = parser.parse();
 
+    let ast_printer = AstPrinter;
     match parsed {
-        Ok(val) => println!("{:#?}", val),
+        Ok(val) => {
+            println!("{}", ast_printer.print(val)); // when parsing 1 + 3 * 2
+                                                    // we get (1 + (3 * 2))
+        }
         _ => println!("Error on parsing"),
     }
 }
