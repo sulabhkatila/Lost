@@ -2,7 +2,8 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 
-use lost::lexer::*;
+use lost::lexer::lexer::*;
+use lost::parser::parser::*;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
@@ -52,5 +53,11 @@ fn run(code: String) {
     let mut lexer: Lexer = Lexer::new(code);
     lexer.scan();
 
-    println!("{:#?}", lexer.tokens);
+    let mut parser = Parser::new(lexer.tokens);
+    let parsed = parser.parse();
+
+    match parsed {
+        Ok(val) => println!("{:#?}", val),
+        _ => println!("Error on parsing"),
+    }
 }

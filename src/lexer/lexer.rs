@@ -1,5 +1,5 @@
+use super::token::*;
 use crate::error::*;
-use crate::token::*;
 
 use std::collections::HashMap;
 

@@ -1,6 +1,8 @@
+use super::node::*;
 use crate::error::*;
-use crate::node::*;
-use crate::token::*;
+use crate::lexer::token::*;
+
+use super::ast::*;
 
 pub struct Parser {
     tokens: Vec<Token>,
