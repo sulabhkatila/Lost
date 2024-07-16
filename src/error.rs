@@ -4,32 +4,40 @@ use std::io::{self, Write};
 pub enum ErrorType {
     LexError,
     ParseError,
+    InterpretError,
 }
 
 #[derive(Debug, Clone)]
-pub struct Error {
-    error_type: ErrorType,
-    message: String,
-    line: usize,
+pub enum Error {
+    LexError(String, usize),
+    ParseError(String, usize),
+    InterpretError(String, usize),
 }
 
 impl Error {
-    pub fn new(error_type: ErrorType, message: String, line: usize) -> Error {
-        Error {
-            error_type,
-            message,
-            line,
-        }
+    pub fn lexer(message: String, line: usize) -> Error {
+        Error::LexError(message, line)
+    }
+
+    pub fn parser(message: String, line: usize) -> Error {
+        Error::ParseError(message, line)
+    }
+
+    pub fn interpreter(message: String, line: usize) -> Error {
+        Error::InterpretError(message, line)
     }
 
     pub fn report(&self) {
-        writeln!(
-            io::stderr(),
-            "{:?}\n{} at line {}",
-            self.error_type,
-            self.message,
-            self.line
-        )
-        .unwrap();
+        match self {
+            Error::LexError(message, line) => {
+                writeln!(io::stderr(), "LexError: {} at line {}", message, line)
+            }
+            Error::ParseError(message, line) => {
+                writeln!(io::stderr(), "ParseError: {} at line {}", message, line)
+            }
+            Error::InterpretError(message, line) => {
+                writeln!(io::stderr(), "InterpretError; {} at line {}", message, line)
+            }
+        };
     }
 }

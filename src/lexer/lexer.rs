@@ -146,11 +146,8 @@ impl<'lexer> Lexer<'lexer> {
                 } else {
                     // Invalid character
                     // Add the error to the list, main will report
-                    self.errors.push(Error::new(
-                        ErrorType::LexError,
-                        "Unexpected Token".to_string(),
-                        self.line,
-                    ));
+                    self.errors
+                        .push(Error::lexer("Unexpected Token".to_string(), self.line));
                 }
             }
         }
@@ -182,11 +179,8 @@ impl<'lexer> Lexer<'lexer> {
 
         if next_char == '\0' {
             // The string literal was not terminated
-            self.errors.push(Error::new(
-                ErrorType::LexError,
-                "Unterminated String".to_string(),
-                self.line,
-            ));
+            self.errors
+                .push(Error::lexer("Unterminated String".to_string(), self.line));
         }
 
         // Consume the closing quote "

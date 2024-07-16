@@ -126,32 +126,15 @@ impl Parser {
 
     // primary  → NUMBER | STRING | "true" | "false" | "nil"  |  "(" expression ")" ;
     fn primary(&mut self) -> Result<Expr, Error> {
-        if self.match_next(vec![TokenType::Nil, TokenType::True, TokenType::False, TokenType::String, TokenType::Number]) {
-            return Ok(Expr::literal(self.previous().clone()))
+        if self.match_next(vec![
+            TokenType::Nil,
+            TokenType::True,
+            TokenType::False,
+            TokenType::String,
+            TokenType::Number,
+        ]) {
+            return Ok(Expr::literal(self.previous().clone()));
         }
-
-        // if self.match_next(vec![TokenType::Nil]) {
-        //     return Ok(Expr::literal(LiteralType::StringType("".to_string())));
-        // }
-        // if self.match_next(vec![TokenType::True]) {
-        //     return Ok(Expr::literal(LiteralType::StringType("true".to_string())));
-        // }
-        // if self.match_next(vec![TokenType::False]) {
-        //     return Ok(Expr::literal(LiteralType::StringType("false".to_string())));
-        // }
-
-        // if self.match_next(vec![TokenType::String, TokenType::Number]) {
-        //     return Ok(Expr::literal(match self.previous().literal {
-        //         Some(val) => match val {
-        //             LiteralType::StringType(string_val) => LiteralType::StringType(string_val),
-        //             LiteralType::NumberType(number_val) => LiteralType::NumberType(number_val),
-        //         },
-        //         _ => {
-        //             // Error
-        //             return Err(self.push_error("Unexpected Token".to_string()));
-        //         }
-        //     }));
-        // }
 
         if self.match_next(vec![TokenType::LeftParen]) {
             let expr = self.expression()?;
@@ -189,7 +172,7 @@ impl Parser {
     // Add error to the list
     // Let main handle reporting
     fn push_error(&mut self, error_message: String) -> Error {
-        let error = Error::new(ErrorType::ParseError, error_message, self.peek().line);
+        let error = Error::parser(error_message, self.peek().line);
         self.errors.push(error.clone());
         error
     }
