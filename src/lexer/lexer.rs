@@ -187,7 +187,7 @@ impl<'lexer> Lexer<'lexer> {
         let _ = self.advance();
 
         // Remove the surrounding quotes ->"..."<-
-        let string_literal: String = self.source_code[self.start + 1..self.current]
+        let string_literal: String = self.source_code[self.start + 1..self.current - 1]
             .iter()
             .collect();
         self.add_token(
