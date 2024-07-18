@@ -91,10 +91,13 @@ impl Visitor<Result<Type, Error>> for Interpreter {
 
                 return Ok(Type::Number(left - right));
             }
-            TokenType::Slash => Ok(Type::Number(
-                self.get_number_or_return_error(left_value, line)?
-                    / self.get_number_or_return_error(right_value, line)?,
-            )),
+            TokenType::Slash => {
+                let right = self.get_number_or_return_error(right_value, line)?;
+                if right == 0.0 {
+                    return Err(Error::InterpretError("Division by Zero".to_string(), line));
+                }
+                Ok(Type::Number(self.get_number_or_return_error(left_value, line)? / right))
+            }
             TokenType::Star => Ok(Type::Number(
                 self.get_number_or_return_error(left_value, line)?
                     * self.get_number_or_return_error(right_value, line)?,
