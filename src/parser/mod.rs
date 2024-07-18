@@ -1,3 +1,3 @@
 pub mod astprinter;
-pub mod node;
+pub mod expr;
 pub mod parser;
