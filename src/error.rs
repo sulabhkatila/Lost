@@ -30,13 +30,13 @@ impl Error {
     pub fn report(&self) {
         match self {
             Error::LexError(message, line) => {
-                writeln!(io::stderr(), "LexError: {} at line {}", message, line)
+                let _ = writeln!(io::stderr(), "LexError: {} at line {}", message, line);
             }
             Error::ParseError(message, line) => {
-                writeln!(io::stderr(), "ParseError: {} at line {}", message, line)
+                let _ = writeln!(io::stderr(), "ParseError: {} at line {}", message, line);
             }
             Error::InterpretError(message, line) => {
-                writeln!(io::stderr(), "InterpretError; {} at line {}", message, line)
+                let _ = writeln!(io::stderr(), "RuntimeError: {} at line {}", message, line);
             }
         };
     }
