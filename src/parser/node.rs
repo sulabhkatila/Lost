@@ -1,6 +1,6 @@
 use crate::lexer::token::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     // AST nodes
 

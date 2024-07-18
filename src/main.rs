@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 
+use interpreter::Interpreter;
+use lost::interpreter::*;
 use lost::lexer::lexer::*;
 use lost::parser::astprinter::AstPrinter;
 use lost::parser::parser::*;
@@ -60,8 +62,14 @@ fn run(code: String) {
     let ast_printer = AstPrinter;
     match parsed {
         Ok(val) => {
-            println!("{}", ast_printer.print(val)); // when parsing 1 + 3 * 2
-                                                    // we get (1 + (3 * 2))
+            println!("{}", ast_printer.print(val.clone()));
+            let box_for_expr = Box::new(val);
+            let interpreter = Interpreter;
+            let interpreter_res = interpreter.interpret(&box_for_expr);
+            match interpreter_res {
+                Ok(_) => {}
+                Err(runtime_error) => runtime_error.report(),
+            }
         }
         _ => println!("Error on parsing"),
     }
