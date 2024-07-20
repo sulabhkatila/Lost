@@ -1,4 +1,5 @@
 use super::expr::*;
+use super::stmt::*;
 use crate::error::*;
 use crate::lexer::token::*;
 
@@ -12,6 +13,13 @@ pub struct Parser {
 
 /*
     Production rules
+
+    program     → statement* EOF ;
+
+    statement   → exprStmt | printStmt ;
+
+    exprStmt    → expression ";" ;
+    printStmt   → "print" expression ";" ;
 
     expression  → equality ;
     equality    → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -32,8 +40,16 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr, Error> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Box<Stmt>>, Error> {
+        let mut statements: Vec<Box<Stmt>> = Vec::new();
+
+        // program  → statement* EOF ;
+        while !self.is_at_end() {
+            let mut new_statement_box = Box::new(self.statement()?);
+            // statements.push(self.statement()?);
+            statements.push(new_statement_box);
+        }
+        Ok(statements)
     }
 
     // Synchronizing to avoid cacading errors
@@ -64,6 +80,33 @@ impl Parser {
                 }
             };
         }
+    }
+
+    // statement  → expression_statement  |  print_statement
+    fn statement(&mut self) -> Result<Stmt, Error> {
+        if self.match_next(vec![TokenType::Print]) {
+            Ok(self.print_statement()?)
+        } else {
+            Ok(self.expression_statement()?)
+        }
+    }
+
+    // print_statement  → "print" expression ";" ;
+    fn print_statement(&mut self) -> Result<Stmt, Error> {
+        let expr = self.expression()?; // "print" will be self."advance"d by caller
+
+        // Expression ends and now at `;`
+        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string());
+        Ok(Stmt::print(Box::new(expr)))
+    }
+
+    // expression_statement  → expression ;
+    fn expression_statement(&mut self) -> Result<Stmt, Error> {
+        let expr = self.expression()?;
+
+        // Expression ends and now at `;`
+        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string());
+        Ok(Stmt::expression(Box::new(expr)))
     }
 
     // expression  → equality ;

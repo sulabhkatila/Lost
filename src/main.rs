@@ -7,6 +7,7 @@ use lost::interpreter::*;
 use lost::lexer::lexer::*;
 use lost::parser::astprinter::AstPrinter;
 use lost::parser::parser::*;
+use lost::parser::stmt::*;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
@@ -61,15 +62,9 @@ fn run(code: String) {
 
     let ast_printer = AstPrinter;
     match parsed {
-        Ok(val) => {
-            println!("{}", ast_printer.print(val.clone()));
-            let box_for_expr = Box::new(val);
-            let interpreter = Interpreter;
-            let interpreter_res = interpreter.interpret(&box_for_expr);
-            match interpreter_res {
-                Ok(_) => {}
-                Err(runtime_error) => runtime_error.report(),
-            }
+        Ok(mut val_vec) => {
+            let mut interpreter = Interpreter;
+            let interpreter_res = interpreter.interpret(&mut val_vec);
         }
         _ => println!("Error on parsing"),
     }

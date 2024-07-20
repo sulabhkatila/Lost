@@ -1,19 +1,29 @@
 use super::types::*;
 use crate::error::*;
 use crate::lexer::token::*;
+use crate::parser::expr::Visitor as ExpressionVisitor;
 use crate::parser::expr::*;
+use crate::parser::stmt::Visitable as StatementVisitable;
+use crate::parser::stmt::Visitor as StatementVisitor;
+use crate::parser::stmt::*;
 
 pub struct Interpreter;
 
 impl Interpreter {
-    pub fn interpret(&self, expr: &Box<Expr>) -> Result<(), Error> {
-        let value = self.evaluate(expr)?;
-        println!("{}", value);
+    pub fn interpret(&mut self, expr_vec: &mut Vec<Box<Stmt>>) -> Result<(), Error> {
+        for expr in expr_vec {
+            let _ = self.execute(expr)?;
+        }
         Ok(())
     }
 
-    pub fn evaluate(&self, expr: &Box<Expr>) -> Result<Type, Error> {
-        expr.accept(self)
+    fn execute(&mut self, stmt: &mut Stmt) -> Result<(), Error> {
+        stmt.accept(self)?;
+        Ok(())
+    }
+
+    fn evaluate(&self, expr: &Box<Expr>) -> Result<Type, Error> {
+        (**expr).accept(self)
     }
 
     // Returns the number value if `value` is of type `Type::Number`, otherwise returns an `Error`.
@@ -71,7 +81,7 @@ impl Interpreter {
     }
 }
 
-impl Visitor<Result<Type, Error>> for Interpreter {
+impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
     fn visit_binary(
         &self,
         left_expr: &Box<Expr>,
@@ -96,7 +106,9 @@ impl Visitor<Result<Type, Error>> for Interpreter {
                 if right == 0.0 {
                     return Err(Error::InterpretError("Division by Zero".to_string(), line));
                 }
-                Ok(Type::Number(self.get_number_or_return_error(left_value, line)? / right))
+                Ok(Type::Number(
+                    self.get_number_or_return_error(left_value, line)? / right,
+                ))
             }
             TokenType::Star => Ok(Type::Number(
                 self.get_number_or_return_error(left_value, line)?
@@ -248,5 +260,19 @@ impl Visitor<Result<Type, Error>> for Interpreter {
                 line,
             )),
         }
+    }
+}
+
+impl StatementVisitor<Result<(), Error>> for Interpreter {
+    fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
+        self.evaluate(expr)?;
+        Ok(())
+    }
+
+    fn visit_print(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
+        let value = self.evaluate(expr)?;
+        println!("{}", value.value());
+
+        Ok(())
     }
 }
