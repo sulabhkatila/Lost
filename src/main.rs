@@ -63,7 +63,7 @@ fn run(code: String) {
     let ast_printer = AstPrinter;
     match parsed {
         Ok(mut val_vec) => {
-            let mut interpreter = Interpreter::new();
+            let mut interpreter = Interpreter::new(None);
             let interpreter_res = interpreter.interpret(&mut val_vec);
             match interpreter_res {
                 Ok(_) => {},

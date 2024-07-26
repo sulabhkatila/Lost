@@ -4,12 +4,14 @@ use crate::lexer::token::*;
 use std::collections::HashMap;
 
 pub struct Environment {
+    enclosing: Box<Option<Environment>>, // rc pointer
     values: HashMap<String, Type>,
 }
 
 impl Environment {
-    pub fn new() -> Environment {
+    pub fn new(enclosing: Option<Environment>) -> Environment {
         Environment {
+            enclosing: Box::new(enclosing),
             values: HashMap::<String, Type>::new(),
         }
     }
@@ -27,12 +29,17 @@ impl Environment {
                 Ok(())
             }
             _ => {
-                // the key does not exists
-                // variable was never declared
-                Err(Error::interpreter(
-                    format!("Undefined variable {}", token.lexeme),
-                    token.line,
-                ))
+                match &mut (*self.enclosing) {
+                    Some(parent_environment) => parent_environment.assign(token, value),
+                    _ => {
+                        // the key does not exist in any environment
+                        // variable was never declared
+                        Err(Error::interpreter(
+                            format!("Undefined variable {}", token.lexeme),
+                            token.line,
+                        ))
+                    }
+                }
             }
         }
     }
@@ -47,10 +54,14 @@ impl Environment {
                     // Making it a runtime error
                     // Allowing to refer variables before decaluted as long as
                     // reference is not evaluated
-                    Err(Error::interpreter(
-                        format!("Undefined variable '{}'.", name.lexeme),
-                        line,
-                    ))
+
+                    match &(*self.enclosing) {
+                        Some(parent_environment) => parent_environment.get(&name),
+                        _ => Err(Error::interpreter(
+                            format!("Undefined variable '{}'.", name.lexeme),
+                            line,
+                        )),
+                    }
                 }
             }
             _ => Err(Error::interpreter(

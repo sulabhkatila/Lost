@@ -14,9 +14,9 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new() -> Interpreter {
+    pub fn new(enclosing: Option<Environment>) -> Interpreter {
         Interpreter {
-            environment: Environment::new(),
+            environment: Environment::new(enclosing),
         }
     }
 
@@ -287,7 +287,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
     fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
         let value = self.evaluate(expr)?;
         println!("{}", value);
-        
+
         Ok(())
     }
 
