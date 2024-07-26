@@ -1,3 +1,5 @@
+use super::environment::*;
+use super::environment::*;
 use super::types::*;
 use crate::error::*;
 use crate::lexer::token::*;
@@ -7,9 +9,17 @@ use crate::parser::stmt::Visitable as StatementVisitable;
 use crate::parser::stmt::Visitor as StatementVisitor;
 use crate::parser::stmt::*;
 
-pub struct Interpreter;
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {
+            environment: Environment::new(),
+        }
+    }
+
     pub fn interpret(&mut self, expr_vec: &mut Vec<Box<Stmt>>) -> Result<(), Error> {
         for expr in expr_vec {
             let _ = self.execute(expr)?;
@@ -22,8 +32,8 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&self, expr: &Box<Expr>) -> Result<Type, Error> {
-        (**expr).accept(self)
+    fn evaluate(&mut self, expr: &Box<Expr>) -> Result<Type, Error> {
+        expr.clone().accept(self)
     }
 
     // Returns the number value if `value` is of type `Type::Number`, otherwise returns an `Error`.
@@ -83,10 +93,10 @@ impl Interpreter {
 
 impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
     fn visit_binary(
-        &self,
-        left_expr: &Box<Expr>,
+        &mut self,
+        left_expr: &mut Box<Expr>,
         operator: &Token,
-        right_expr: &Box<Expr>,
+        right_expr: &mut Box<Expr>,
     ) -> Result<Type, Error> {
         let left_value = self.evaluate(left_expr)?;
         let right_value = self.evaluate(right_expr)?;
@@ -179,11 +189,11 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
         }
     }
 
-    fn visit_grouping(&self, grouping_expr: &Box<Expr>) -> Result<Type, Error> {
+    fn visit_grouping(&mut self, grouping_expr: &mut Box<Expr>) -> Result<Type, Error> {
         self.evaluate(grouping_expr)
     }
 
-    fn visit_unary(&self, operator: &Token, unary_expr: &Box<Expr>) -> Result<Type, Error> {
+    fn visit_unary(&mut self, operator: &Token, unary_expr: &mut Box<Expr>) -> Result<Type, Error> {
         let right = self.evaluate(unary_expr)?;
 
         let line = operator.line;
@@ -209,7 +219,7 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
         }
     }
 
-    fn visit_literal(&self, lit: &Token) -> Result<Type, Error> {
+    fn visit_literal(&mut self, lit: &Token) -> Result<Type, Error> {
         let line = lit.line;
         match lit.token_type {
             // String and Number literals
@@ -261,18 +271,43 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
             )),
         }
     }
+
+    fn visit_variable(&mut self, variable: &Token) -> Result<Type, Error> {
+        self.environment.get(variable)
+    }
+
+    fn visit_assign(&mut self, variable: &Token, expr: &mut Box<Expr>) -> Result<Type, Error> {
+        let value = self.evaluate(expr)?;
+        let _ = self.environment.assign(variable.clone(), value.clone())?;
+        Ok(value)
+    }
 }
 
 impl StatementVisitor<Result<(), Error>> for Interpreter {
     fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
-        self.evaluate(expr)?;
+        let value = self.evaluate(expr)?;
+        println!("{}", value);
+        
         Ok(())
     }
 
     fn visit_print(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
         let value = self.evaluate(expr)?;
-        println!("{}", value.value());
+        println!("{}", value);
 
+        Ok(())
+    }
+
+    fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> Result<(), Error> {
+        // token is the variable
+        // expr is the value for the variable // initializer
+        match expr {
+            Some(val) => {
+                let val = self.evaluate(val)?;
+                self.environment.define(token.lexeme.clone(), val);
+            }
+            _ => self.environment.define(token.lexeme.clone(), Type::Nil),
+        }
         Ok(())
     }
 }

@@ -14,22 +14,26 @@ pub struct Parser {
 /*
     Production rules
 
-    program     → statement* EOF ;
+    program     → declaration* EOF ;
 
-    statement   → exprStmt | printStmt ;
+    declaration → var_declaration | statement ;
 
-    exprStmt    → expression ";" ;
-    printStmt   → "print" expression ";" ;
+    var_declaration    → "var" IDENTIFIER ( "=" expression )? ";" ;
+    statement           → expression_statement | print_statement ;
 
-    expression  → equality ;
+    expression_statement    → expression ";" ;
+    print_statement         → "print" expression ";" ;
+
+    expression  → assignment ;
+    assignment  → IDENTIFIER "=" assignment | equality ;
     equality    → comparison ( ( "!=" | "==" ) comparison )* ;
     comparison  → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
     term        → factor ( ( "-" | "+" ) factor )* ;
     factor      → unary ( ( "/" | "*" ) unary )* ;
     unary       → ( "!" | "-" ) unary
                 | primary ;
-    primary     → NUMBER | STRING | "true" | "false" | "nil"
-                | "(" expression ")" ;
+    primary     → NUMBER | STRING | IDENTIFIER | "true" | "false"
+                | "nil" | "(" expression ")";
 */
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
@@ -45,9 +49,9 @@ impl Parser {
 
         // program  → statement* EOF ;
         while !self.is_at_end() {
-            let mut new_statement_box = Box::new(self.statement()?);
+            // let mut new_statement_box = Box::new(self.statement()?); // old one
             // statements.push(self.statement()?);
-            statements.push(new_statement_box);
+            statements.push(Box::new(self.declaration()?));
         }
         Ok(statements)
     }
@@ -82,6 +86,32 @@ impl Parser {
         }
     }
 
+    // declaration → var_declaration | statement ;
+    // just a special statement
+    fn declaration(&mut self) -> Result<Stmt, Error> {
+        if self.match_next(vec![TokenType::Var]) {
+            Ok(self.var_declaration()?)
+        } else {
+            Ok(self.statement()?)
+        }
+    }
+
+    // var_declaration → "var" IDENTIFIER ( "=" expression )? ";" ;
+    fn var_declaration(&mut self) -> Result<Stmt, Error> {
+        let variable_name = self.consume(
+            TokenType::Identifier,
+            "Expected a variable name".to_string(),
+        )?;
+
+        let mut initializer: Option<Box<Expr>> = None;
+        if self.match_next(vec![TokenType::Equal]) {
+            initializer = Some(Box::new(self.expression()?));
+        }
+
+        self.consume(TokenType::SemiColon, "Expected `;` in the end".to_string());
+        Ok(Stmt::var(variable_name, initializer))
+    }
+
     // statement  → expression_statement  |  print_statement
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::Print]) {
@@ -109,9 +139,25 @@ impl Parser {
         Ok(Stmt::expression(Box::new(expr)))
     }
 
-    // expression  → equality ;
+    // expression  → assignment ;
     fn expression(&mut self) -> Result<Expr, Error> {
-        self.equality()
+        self.assignment()
+    }
+
+    // assignment → IDENTIFIER "=" assignment | equality
+    fn assignment(&mut self) -> Result<Expr, Error> {
+        let left_side_identifier = self.equality()?;
+
+        if self.match_next(vec![TokenType::Equal]) {
+            let equals = self.previous();
+            let right_side_expr = self.assignment()?;
+
+            match left_side_identifier {
+                Expr::Variable(token) => return Ok(Expr::Assign(token, Box::new(right_side_expr))),
+                _ => return Err(Error::parser("Invalid assignment target".to_string(), equals.line)),
+            }
+        }
+        Ok(left_side_identifier)
     }
 
     // equality  → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -167,7 +213,7 @@ impl Parser {
         self.primary()
     }
 
-    // primary  → NUMBER | STRING | "true" | "false" | "nil"  |  "(" expression ")" ;
+    // primary  → NUMBER | STRING | IDENTIFIER | "true" | "false" | "nil"  |  "(" expression ")";
     fn primary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![
             TokenType::Nil,
@@ -177,6 +223,10 @@ impl Parser {
             TokenType::Number,
         ]) {
             return Ok(Expr::literal(self.previous().clone()));
+        }
+
+        if self.match_next(vec![TokenType::Identifier]) {
+            return Ok(Expr::Variable(self.previous()));
         }
 
         if self.match_next(vec![TokenType::LeftParen]) {

@@ -63,8 +63,12 @@ fn run(code: String) {
     let ast_printer = AstPrinter;
     match parsed {
         Ok(mut val_vec) => {
-            let mut interpreter = Interpreter;
+            let mut interpreter = Interpreter::new();
             let interpreter_res = interpreter.interpret(&mut val_vec);
+            match interpreter_res {
+                Ok(_) => {},
+                Err(error) => {println!("{:#?}", error)},
+            }
         }
         _ => println!("Error on parsing"),
     }
