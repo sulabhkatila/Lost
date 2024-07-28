@@ -11,7 +11,7 @@ string      String
 
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Type {
     String(String),
     Number(f32),

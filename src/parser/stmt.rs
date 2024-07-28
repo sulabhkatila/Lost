@@ -3,12 +3,17 @@ use crate::lexer::token::*;
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    Block(Box<Vec<Stmt>>),
     Expression(Box<Expr>),
     Print(Box<Expr>),
     Var(Token, Option<Box<Expr>>),
 }
 
 impl Stmt {
+    pub fn block(statements: Box<Vec<Stmt>>) -> Stmt {
+        Stmt::Block(statements)
+    }
+
     pub fn expression(expr: Box<Expr>) -> Stmt {
         Stmt::Expression(expr)
     }
@@ -29,6 +34,7 @@ pub trait Visitable<T> {
 impl<T> Visitable<T> for Stmt {
     fn accept(&mut self, visitor: &mut impl Visitor<T>) -> T {
         match self {
+            Stmt::Block(statements) => visitor.visit_block(statements),
             Stmt::Expression(expr) => visitor.visit_expression(expr),
             Stmt::Print(expr) => visitor.visit_print(expr),
             Stmt::Var(token, expr) => visitor.visit_var(&token, &expr),
@@ -38,6 +44,7 @@ impl<T> Visitable<T> for Stmt {
 
 // Any Visitor class to Stmt must implement Visitor trait
 pub trait Visitor<T> {
+    fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> T;
     fn visit_expression(&mut self, expr: &Box<Expr>) -> T;
     fn visit_print(&mut self, expr: &Box<Expr>) -> T;
     fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> T;

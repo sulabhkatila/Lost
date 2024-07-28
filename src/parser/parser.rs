@@ -19,7 +19,9 @@ pub struct Parser {
     declaration → var_declaration | statement ;
 
     var_declaration    → "var" IDENTIFIER ( "=" expression )? ";" ;
-    statement           → expression_statement | print_statement ;
+    statement           → expression_statement | print_statement | block ;
+
+    block       → "{" declaration* "}" ;
 
     expression_statement    → expression ";" ;
     print_statement         → "print" expression ";" ;
@@ -112,13 +114,27 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  → expression_statement  |  print_statement
+    // statement  → expression_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::Print]) {
-            Ok(self.print_statement()?)
+            self.print_statement()
+        } else if self.match_next(vec![TokenType::LeftBrace]){
+            Ok(Stmt::block(Box::new(self.block()?)))
         } else {
-            Ok(self.expression_statement()?)
+            self.expression_statement()
         }
+    }
+
+    // block  → "{" declaration* "}" ;
+    fn block(&mut self) -> Result<Vec<Stmt>, Error> {
+        let mut statements = Vec::<Stmt>::new();
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(TokenType::RightBrace, "Expected `}` at the end of block".to_string());
+        Ok(statements)
     }
 
     // print_statement  → "print" expression ";" ;
@@ -144,7 +160,7 @@ impl Parser {
         self.assignment()
     }
 
-    // assignment → IDENTIFIER "=" assignment | equality
+    // assignment → IDENTIFIER "=" assignment | equality ;
     fn assignment(&mut self) -> Result<Expr, Error> {
         let left_side_identifier = self.equality()?;
 

@@ -3,8 +3,9 @@ use crate::error::*;
 use crate::lexer::token::*;
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
 pub struct Environment {
-    enclosing: Box<Option<Environment>>, // rc pointer
+    enclosing: Box<Option<Environment>>,
     values: HashMap<String, Type>,
 }
 

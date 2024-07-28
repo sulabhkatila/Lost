@@ -1,3 +1,4 @@
+use super::environment;
 use super::environment::*;
 use super::environment::*;
 use super::types::*;
@@ -88,6 +89,29 @@ impl Interpreter {
             Type::Boolean(val) => val,
             Type::Nil => false,
         }
+    }
+
+    pub fn execute_block(
+        &mut self,
+        statements: &mut Box<Vec<Stmt>>,
+        environment: Environment,
+    ) -> Result<(), Error> {
+        let temp = self.environment.clone();
+
+        self.environment = environment;
+
+        for statement in (*statements).as_mut().iter_mut() {
+            match self.execute(statement) {
+                Err(error) => {
+                    self.environment = temp;
+                    return Err(error);
+                }
+                Ok(_) => {}
+            };
+        }
+
+        self.environment = temp;
+        Ok(())
     }
 }
 
@@ -284,6 +308,11 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 }
 
 impl StatementVisitor<Result<(), Error>> for Interpreter {
+    fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> Result<(), Error> {
+        self.execute_block(statements, Environment::new(Some(self.environment.clone())))?;
+        Ok(())
+    }
+
     fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
         let value = self.evaluate(expr)?;
         println!("{}", value);
