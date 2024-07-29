@@ -130,12 +130,12 @@ impl Parser {
 
     // if_statement  → "if" "(" expression ")" statement ("else" statement)? ;
     fn if_statement(&mut self) -> Result<Stmt, Error> {
-        self.consume(TokenType::LeftParen, "Expected `(` after if".to_string());
+        self.consume(TokenType::LeftParen, "Expected `(` after if".to_string())?;
         let condition = self.expression()?;
         self.consume(
             TokenType::RightParen,
             "Expected `)` after condition".to_string(),
-        );
+        )?;
 
         let then_branch = self.statement()?;
 
@@ -144,7 +144,7 @@ impl Parser {
             return Ok(Stmt::IfElse(
                 Box::new(condition),
                 Box::new(then_branch),
-                Some(Box::new((else_branch))),
+                Some(Box::new(else_branch)),
             ));
         }
 
@@ -166,7 +166,7 @@ impl Parser {
         self.consume(
             TokenType::RightBrace,
             "Expected `}` at the end of block".to_string(),
-        );
+        )?;
         Ok(statements)
     }
 
@@ -175,7 +175,7 @@ impl Parser {
         let expr = self.expression()?; // "print" will be self."advance"d by caller
 
         // Expression ends and now at `;`
-        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string());
+        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string())?;
         Ok(Stmt::print(Box::new(expr)))
     }
 
@@ -184,7 +184,7 @@ impl Parser {
         let expr = self.expression()?;
 
         // Expression ends and now at `;`
-        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string());
+        self.consume(TokenType::SemiColon, "Expected `;` at the end".to_string())?;
         Ok(Stmt::expression(Box::new(expr)))
     }
 
