@@ -13,6 +13,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
     Unary(Token, Box<Expr>),
     Literal(Token),
+    Logical(Box<Expr>, Token, Box<Expr>),
     Variable(Token),
     Assign(Token, Box<Expr>),
 }
@@ -34,6 +35,14 @@ impl Expr {
         Expr::Literal(literalval)
     }
 
+    pub fn logical(left_expr: Expr, logical_and_or: Token, right_expr: Expr) -> Expr {
+        Expr::Logical(
+            Box::new(left_expr),
+            logical_and_or,
+            Box::new(right_expr),
+        )
+    }
+
     pub fn variable(variable_name: Token) -> Expr {
         Expr::Variable(variable_name)
     }
@@ -50,6 +59,7 @@ impl<T> Visitable<T> for Expr {
             Expr::Grouping(expr) => visitor.visit_grouping(expr),
             Expr::Unary(operator, right) => visitor.visit_unary(operator, right),
             Expr::Literal(lit) => visitor.visit_literal(lit),
+            Expr::Logical(left_expr, logical_and_or, right_expr) => visitor.visit_logical(left_expr, logical_and_or, right_expr),
             Expr::Variable(variable) => visitor.visit_variable(variable),
             Expr::Assign(token, expr) => visitor.visit_assign(token, expr),
         }
@@ -58,10 +68,16 @@ impl<T> Visitable<T> for Expr {
 
 // Any Visitor class to Expr must implement Visitor trait
 pub trait Visitor<T> {
-    fn visit_binary(&mut self, left_expr: &mut Box<Expr>, operator: &Token, right_expr: &mut Box<Expr>) -> T;
+    fn visit_binary(
+        &mut self,
+        left_expr: &mut Box<Expr>,
+        operator: &Token,
+        right_expr: &mut Box<Expr>,
+    ) -> T;
     fn visit_grouping(&mut self, grouping_expr: &mut Box<Expr>) -> T;
     fn visit_unary(&mut self, operator: &Token, unary_expr: &mut Box<Expr>) -> T;
     fn visit_literal(&mut self, lit: &Token) -> T;
+    fn visit_logical(&mut self, left_expr: &mut Box<Expr>, logical_and_or: &mut Token, right_expr: &mut Box<Expr>) -> T;
     fn visit_variable(&mut self, variable: &Token) -> T;
     fn visit_assign(&mut self, variable: &Token, expr: &mut Box<Expr>) -> T;
 }

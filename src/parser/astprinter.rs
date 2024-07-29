@@ -55,4 +55,18 @@ impl Visitor<String> for AstPrinter {
     fn visit_assign(&mut self, variable: &Token, expr: &mut Box<Expr>) -> String {
         format!("{} {}", variable.lexeme, expr.accept(self))
     }
+
+    fn visit_logical(
+        &mut self,
+        left_expr: &mut Box<Expr>,
+        logical_and_or: &mut Token,
+        right_expr: &mut Box<Expr>,
+    ) -> String {
+        format!(
+            "{} {} {}",
+            left_expr.accept(self),
+            logical_and_or.lexeme,
+            right_expr.accept(self)
+        )
+    }
 }

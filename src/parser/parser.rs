@@ -14,28 +14,30 @@ pub struct Parser {
 /*
     Production rules
 
-    program     → declaration* EOF ;
+    program     -> declaration* EOF ;
 
-    declaration → var_declaration | statement ;
+    declaration -> var_declaration | statement ;
 
-    var_declaration    → "var" IDENTIFIER ( "=" expression )? ";" ;
-    statement          → expression_statement | if_statement | print_statement | block ;
+    var_declaration    -> "var" IDENTIFIER ( "=" expression )? ";" ;
+    statement          -> expression_statement | if_statement | print_statement | block ;
 
-    if_statement       → "if" "(" expression ")" statement ("else" statement)? ;
-    block       → "{" declaration* "}" ;
+    if_statement       -> "if" "(" expression ")" statement ("else" statement)? ;
+    block              -> "{" declaration* "}" ;
 
-    expression_statement    → expression ";" ;
-    print_statement         → "print" expression ";" ;
+    expression_statement    -> expression ";" ;
+    print_statement         -> "print" expression ";" ;
 
-    expression  → assignment ;
-    assignment  → IDENTIFIER "=" assignment | equality ;
-    equality    → comparison ( ( "!=" | "==" ) comparison )* ;
-    comparison  → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-    term        → factor ( ( "-" | "+" ) factor )* ;
-    factor      → unary ( ( "/" | "*" ) unary )* ;
-    unary       → ( "!" | "-" ) unary
+    expression  -> assignment ;
+    assignment  -> IDENTIFIER "=" assignment | logic_or ;
+    logic_or    -> logic_and ( "or" logic_and )* ;
+    logic_and   -> equality ( "and" equality )* ;
+    equality    -> comparison ( ( "!=" | "==" ) comparison )* ;
+    comparison  -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+    term        -> factor ( ( "-" | "+" ) factor )* ;
+    factor      -> unary ( ( "/" | "*" ) unary )* ;
+    unary       -> ( "!" | "-" ) unary
                 | primary ;
-    primary     → NUMBER | STRING | IDENTIFIER | "true" | "false"
+    primary     -> NUMBER | STRING | IDENTIFIER | "true" | "false"
                 | "nil" | "(" expression ")";
 */
 impl Parser {
@@ -50,7 +52,7 @@ impl Parser {
     pub fn parse(&mut self) -> Result<Vec<Box<Stmt>>, Error> {
         let mut statements: Vec<Box<Stmt>> = Vec::new();
 
-        // program  → statement* EOF ;
+        // program  -> statement* EOF ;
         while !self.is_at_end() {
             // let mut new_statement_box = Box::new(self.statement()?); // old one
             // statements.push(self.statement()?);
@@ -89,7 +91,7 @@ impl Parser {
         }
     }
 
-    // declaration → var_declaration | statement ;
+    // declaration -> var_declaration | statement ;
     // just a special statement
     fn declaration(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::Var]) {
@@ -99,7 +101,7 @@ impl Parser {
         }
     }
 
-    // var_declaration → "var" IDENTIFIER ( "=" expression )? ";" ;
+    // var_declaration -> "var" IDENTIFIER ( "=" expression )? ";" ;
     fn var_declaration(&mut self) -> Result<Stmt, Error> {
         let variable_name = self.consume(
             TokenType::Identifier,
@@ -115,7 +117,7 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  → expression_statement | if_statement | print_statement | block ;
+    // statement  -> expression_statement | if_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::If]) {
             self.if_statement()
@@ -128,7 +130,7 @@ impl Parser {
         }
     }
 
-    // if_statement  → "if" "(" expression ")" statement ("else" statement)? ;
+    // if_statement  -> "if" "(" expression ")" statement ("else" statement)? ;
     fn if_statement(&mut self) -> Result<Stmt, Error> {
         self.consume(TokenType::LeftParen, "Expected `(` after if".to_string())?;
         let condition = self.expression()?;
@@ -155,7 +157,7 @@ impl Parser {
         ))
     }
 
-    // block  → "{" declaration* "}" ;
+    // block  -> "{" declaration* "}" ;
     fn block(&mut self) -> Result<Vec<Stmt>, Error> {
         let mut statements = Vec::<Stmt>::new();
 
@@ -170,7 +172,7 @@ impl Parser {
         Ok(statements)
     }
 
-    // print_statement  → "print" expression ";" ;
+    // print_statement  -> "print" expression ";" ;
     fn print_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?; // "print" will be self."advance"d by caller
 
@@ -179,7 +181,7 @@ impl Parser {
         Ok(Stmt::print(Box::new(expr)))
     }
 
-    // expression_statement  → expression ;
+    // expression_statement  -> expression ;
     fn expression_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
 
@@ -188,14 +190,14 @@ impl Parser {
         Ok(Stmt::expression(Box::new(expr)))
     }
 
-    // expression  → assignment ;
+    // expression  -> assignment ;
     fn expression(&mut self) -> Result<Expr, Error> {
         self.assignment()
     }
 
-    // assignment → IDENTIFIER "=" assignment | equality ;
+    // assignment  -> IDENTIFIER "=" assignment | logic_or ;
     fn assignment(&mut self) -> Result<Expr, Error> {
-        let left_side_identifier = self.equality()?;
+        let left_side_identifier = self.logic_or()?;
 
         if self.match_next(vec![TokenType::Equal]) {
             let equals = self.previous();
@@ -214,7 +216,33 @@ impl Parser {
         Ok(left_side_identifier)
     }
 
-    // equality  → comparison ( ( "!=" | "==" ) comparison )* ;
+    // logic_or  -> logic_and ( "or" logic_and )* ;
+    fn logic_or(&mut self) -> Result<Expr, Error> {
+        let left_expr = self.logic_and()?;
+
+        if self.match_next(vec![TokenType::Or]) {
+            let logical_or = self.previous();
+            let right_expr = self.logic_and()?;
+            return Ok(Expr::logical(left_expr, logical_or, right_expr))
+        }
+
+        Ok(left_expr)
+    }
+
+    // logic_and  -> equality ( "and" equality )* ;
+    fn logic_and(&mut self) -> Result<Expr, Error> {
+        let left_expr = self.equality()?;
+
+        if self.match_next(vec![TokenType::And]) {
+            let logical_and = self.previous();
+            let right_expr = self.equality()?;
+            return Ok(Expr::logical(left_expr, logical_and, right_expr))
+        }
+
+        Ok(left_expr)
+    }
+
+    // equality  -> comparison ( ( "!=" | "==" ) comparison )* ;
     fn equality(&mut self) -> Result<Expr, Error> {
         let mut expr = self.comparison()?;
 
@@ -224,7 +252,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // comparison  → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+    // comparison  -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
     fn comparison(&mut self) -> Result<Expr, Error> {
         let mut expr = self.term()?;
 
@@ -239,7 +267,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // term  → factor ( ( "-" | "+" ) factor )* ;
+    // term  -> factor ( ( "-" | "+" ) factor )* ;
     fn term(&mut self) -> Result<Expr, Error> {
         let mut expr = self.factor()?;
         if self.match_next(vec![TokenType::Minus, TokenType::Plus]) {
@@ -249,7 +277,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // factor  → unary ( ( "/" | "*" ) unary )* ;
+    // factor  -> unary ( ( "/" | "*" ) unary )* ;
     fn factor(&mut self) -> Result<Expr, Error> {
         let mut expr = self.unary()?;
         if self.match_next(vec![TokenType::Slash, TokenType::Star]) {
@@ -259,7 +287,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // unary  → ( "!" | "-" ) unary  |  primary ;
+    // unary  -> ( "!" | "-" ) unary  |  primary ;
     fn unary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![TokenType::Bang, TokenType::Minus]) {
             return Ok(Expr::unary(self.previous(), self.unary()?));
@@ -267,7 +295,7 @@ impl Parser {
         self.primary()
     }
 
-    // primary  → NUMBER | STRING | IDENTIFIER | "true" | "false" | "nil"  |  "(" expression ")";
+    // primary  -> NUMBER | STRING | IDENTIFIER | "true" | "false" | "nil"  |  "(" expression ")";
     fn primary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![
             TokenType::Nil,

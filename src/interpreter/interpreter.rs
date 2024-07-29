@@ -305,6 +305,31 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
         let _ = self.environment.assign(variable.clone(), value.clone())?;
         Ok(value)
     }
+
+    fn visit_logical(
+        &mut self,
+        left_expr: &mut Box<Expr>,
+        logical_and_or: &mut Token,
+        right_expr: &mut Box<Expr>,
+    ) -> Result<Type, Error> {
+        let left_value = self.evaluate(&left_expr)?;
+
+        match logical_and_or.token_type {
+            TokenType::Or => {
+                if self.is_truthly(left_value.clone()) {
+                    return Ok(left_value);
+                }
+            },
+            TokenType::And => {
+                if !self.is_truthly(left_value.clone()) {
+                    return Ok(left_value);
+                }
+            },
+            _ => {println!("{:#?}", &logical_and_or);unreachable!()},
+        }
+
+        self.evaluate(&right_expr)
+    }
 }
 
 impl StatementVisitor<Result<(), Error>> for Interpreter {
