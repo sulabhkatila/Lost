@@ -339,4 +339,22 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         }
         Ok(())
     }
+
+    fn visit_ifelse(
+        &mut self,
+        condition: &Box<Expr>,
+        then_branch: &Box<Stmt>,
+        else_branch: &Option<Box<Stmt>>,
+    ) -> Result<(), Error> {
+        let condition_evaluated = self.evaluate(condition)?;
+        if self.is_truthly(condition_evaluated) {
+            let mut then_branch = then_branch.clone();
+            self.execute(&mut then_branch)
+        } else {
+            match else_branch {
+                Some(else_branch) => self.execute(&mut (**else_branch).clone()),
+                _ => return Ok(()),
+            }
+        }
+    }
 }

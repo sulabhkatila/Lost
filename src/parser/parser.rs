@@ -19,8 +19,9 @@ pub struct Parser {
     declaration → var_declaration | statement ;
 
     var_declaration    → "var" IDENTIFIER ( "=" expression )? ";" ;
-    statement           → expression_statement | print_statement | block ;
+    statement          → expression_statement | if_statement | print_statement | block ;
 
+    if_statement       → "if" "(" expression ")" statement ("else" statement)? ;
     block       → "{" declaration* "}" ;
 
     expression_statement    → expression ";" ;
@@ -114,15 +115,44 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  → expression_statement | print_statement | block ;
+    // statement  → expression_statement | if_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
-        if self.match_next(vec![TokenType::Print]) {
+        if self.match_next(vec![TokenType::If]) {
+            self.if_statement()
+        } else if self.match_next(vec![TokenType::Print]) {
             self.print_statement()
-        } else if self.match_next(vec![TokenType::LeftBrace]){
+        } else if self.match_next(vec![TokenType::LeftBrace]) {
             Ok(Stmt::block(Box::new(self.block()?)))
         } else {
             self.expression_statement()
         }
+    }
+
+    // if_statement  → "if" "(" expression ")" statement ("else" statement)? ;
+    fn if_statement(&mut self) -> Result<Stmt, Error> {
+        self.consume(TokenType::LeftParen, "Expected `(` after if".to_string());
+        let condition = self.expression()?;
+        self.consume(
+            TokenType::RightParen,
+            "Expected `)` after condition".to_string(),
+        );
+
+        let then_branch = self.statement()?;
+
+        if self.match_next(vec![TokenType::Else]) {
+            let else_branch = self.statement()?;
+            return Ok(Stmt::IfElse(
+                Box::new(condition),
+                Box::new(then_branch),
+                Some(Box::new((else_branch))),
+            ));
+        }
+
+        Ok(Stmt::ifelse(
+            Box::new(condition),
+            Box::new(then_branch),
+            None,
+        ))
     }
 
     // block  → "{" declaration* "}" ;
@@ -133,7 +163,10 @@ impl Parser {
             statements.push(self.declaration()?);
         }
 
-        self.consume(TokenType::RightBrace, "Expected `}` at the end of block".to_string());
+        self.consume(
+            TokenType::RightBrace,
+            "Expected `}` at the end of block".to_string(),
+        );
         Ok(statements)
     }
 
@@ -170,7 +203,12 @@ impl Parser {
 
             match left_side_identifier {
                 Expr::Variable(token) => return Ok(Expr::Assign(token, Box::new(right_side_expr))),
-                _ => return Err(Error::parser("Invalid assignment target".to_string(), equals.line)),
+                _ => {
+                    return Err(Error::parser(
+                        "Invalid assignment target".to_string(),
+                        equals.line,
+                    ))
+                }
             }
         }
         Ok(left_side_identifier)
