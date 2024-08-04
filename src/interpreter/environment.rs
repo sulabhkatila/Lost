@@ -1,74 +1,53 @@
-use super::types::*;
-use crate::error::*;
-use crate::lexer::token::*;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-#[derive(Clone, Debug)]
+use super::types::Type;
+use crate::{error::*, lexer::token::Token};
+
 pub struct Environment {
-    enclosing: Box<Option<Environment>>,
-    values: HashMap<String, Type>,
+    enclosing: Option<Rc<RefCell<Environment>>>, // Parent Environment
+    values: HashMap<String, Type>,               // Current Scope
 }
 
 impl Environment {
-    pub fn new(enclosing: Option<Environment>) -> Environment {
+    pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Environment {
         Environment {
-            enclosing: Box::new(enclosing),
+            enclosing,
             values: HashMap::<String, Type>::new(),
         }
     }
 
     pub fn define(&mut self, name: String, value: Type) {
-        // var a = "before"
-        // var a = "after"
         self.values.insert(name, value);
     }
 
-    pub fn assign(&mut self, token: Token, value: Type) -> Result<(), Error> {
-        match self.values.get(&token.lexeme) {
+    pub fn assign(&mut self, variable_token: &Token, value: Type) -> Result<(), Error> {
+        match self.values.get(variable_token.lexeme.as_str()) {
             Some(_) => {
-                self.values.insert(token.lexeme, value);
+                self.values.insert(variable_token.lexeme.clone(), value);
                 Ok(())
             }
-            _ => {
-                match &mut (*self.enclosing) {
-                    Some(parent_environment) => parent_environment.assign(token, value),
-                    _ => {
-                        // the key does not exist in any environment
-                        // variable was never declared
-                        Err(Error::interpreter(
-                            format!("Undefined variable {}", token.lexeme),
-                            token.line,
-                        ))
-                    }
-                }
-            }
+            None => match &self.enclosing {
+                Some(parent_environment) => parent_environment
+                    .borrow_mut()
+                    .assign(variable_token, value),
+                None => Err(Error::interpreter(
+                    format!("Undefined Variable {}", variable_token.lexeme),
+                    variable_token.line,
+                )),
+            },
         }
     }
 
-    pub fn get(&self, name: &Token) -> Result<Type, Error> {
-        let line = name.line;
-        match name.token_type {
-            TokenType::Identifier => {
-                if let Some(value) = self.values.get(&name.lexeme) {
-                    Ok(value.clone())
-                } else {
-                    // Making it a runtime error
-                    // Allowing to refer variables before decaluted as long as
-                    // reference is not evaluated
-
-                    match &(*self.enclosing) {
-                        Some(parent_environment) => parent_environment.get(&name),
-                        _ => Err(Error::interpreter(
-                            format!("Undefined variable '{}'.", name.lexeme),
-                            line,
-                        )),
-                    }
-                }
-            }
-            _ => Err(Error::interpreter(
-                "Attempt to get value of a non-identifier token.".to_string(),
-                line,
-            )),
+    pub fn get(&self, variable_token: &Token) -> Result<Type, Error> {
+        match self.values.get(variable_token.lexeme.as_str()) {
+            Some(value) => Ok((*value).clone()),
+            None => match &self.enclosing {
+                Some(parent_environment) => parent_environment.borrow().get(variable_token),
+                None => Err(Error::interpreter(
+                    format!("Undefined Variable {}", variable_token.lexeme.as_str()),
+                    variable_token.line,
+                )),
+            },
         }
     }
 }
