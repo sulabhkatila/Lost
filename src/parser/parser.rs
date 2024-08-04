@@ -1,3 +1,5 @@
+use std::fmt::Arguments;
+
 use super::{expr::*, stmt::*};
 
 use crate::{error::*, lexer::token::*};
@@ -38,7 +40,9 @@ pub struct Parser {
     term        -> factor ( ( "-" | "+" ) factor )* ;
     factor      -> unary ( ( "/" | "*" ) unary )* ;
     unary       -> ( "!" | "-" ) unary
-                | primary ;
+                | call ;
+    call        -> primary ( "(" arguments? ")" )* ;
+    arguments   -> expression ( "," expression )* ;
     primary     -> NUMBER | STRING | IDENTIFIER | "true" | "false"
                 | "nil" | "(" expression ")";
 */
@@ -383,15 +387,50 @@ impl Parser {
         Ok(expr)
     }
 
-    // unary  -> ( "!" | "-" ) unary  |  primary ;
+    // unary  -> ( "!" | "-" ) unary  |  call ;
     fn unary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![TokenType::Bang, TokenType::Minus]) {
             return Ok(Expr::unary(self.previous(), self.unary()?));
         }
-        self.primary()
+        self.call()
     }
 
-    // primary  -> NUMBER | STRING | IDENTIFIER | "true" | "false" | "nil"  |  "(" expression ")";
+    // call  -> primary ( "(" arguments? ")" )* ;
+    fn call(&mut self) -> Result<Expr, Error> {
+        let mut expression = self.primary()?;
+
+        loop {
+            if self.match_next(vec![TokenType::LeftParen]) {
+                expression = self.finish_call(expression)?;
+            } else {
+                break;
+            }
+        }
+        Ok(expression)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, Error> {
+        let mut arguments = Vec::new();
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                arguments.push(self.expression()?);
+                if self.match_next(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        let closing_paren = self.consume(
+            TokenType::RightParen,
+            "Expected `)` after arguments".to_string(),
+        )?;
+
+        Ok(Expr::call(callee, closing_paren, arguments))
+    }
+
+    // primary  -> NUMBER | STRING | IDENTIFIER | "true" | "false" 
+    //           | "nil"  |  "(" expression ")";
     fn primary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![
             TokenType::Nil,

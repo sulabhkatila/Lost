@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use super::expr::*;
 use crate::lexer::token::*;
 
@@ -24,6 +22,22 @@ impl Visitor<String> for AstPrinter {
             operator.lexeme,
             right_expr.accept(self)
         )
+    }
+
+    fn visit_call(
+        &mut self,
+        callee: &mut Box<Expr>,
+        closing_paren: &Token,
+        arguments: &mut Box<Vec<Expr>>,
+    ) -> String {
+        let mut comma_seperated_arguments = String::new();
+        for argument in (*arguments).iter_mut() {
+            if comma_seperated_arguments.len() != 0 {
+                comma_seperated_arguments += ", ";
+            }
+            comma_seperated_arguments += &argument.accept(self)
+        }
+        format!("{}({})", callee.accept(self), comma_seperated_arguments)
     }
 
     fn visit_grouping(&mut self, grouping_expr: &mut Box<Expr>) -> String {
