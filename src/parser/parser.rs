@@ -111,7 +111,7 @@ impl Parser {
             initializer = Some(Box::new(self.expression()?));
         }
 
-        self.consume(TokenType::SemiColon, "Expected `;` in the end".to_string());
+        self.consume(TokenType::SemiColon, "Expected `;` in the end".to_string())?;
         Ok(Stmt::var(variable_name, initializer))
     }
 
