@@ -1,5 +1,3 @@
-use std::fmt::Arguments;
-
 use super::{expr::*, stmt::*};
 
 use crate::{error::*, lexer::token::*};
@@ -411,9 +409,17 @@ impl Parser {
 
     fn finish_call(&mut self, callee: Expr) -> Result<Expr, Error> {
         let mut arguments = Vec::new();
+        let mut error = None;
 
         if !self.check(TokenType::RightParen) {
             loop {
+                if arguments.len() >= 255 {
+                    error = Some(Error::ParseError(
+                        "Too many arguments. A function can't have more than 255 arguments"
+                            .to_string(),
+                        self.previous().line,
+                    ));
+                }
                 arguments.push(self.expression()?);
                 if self.match_next(vec![TokenType::Comma]) {
                     break;
@@ -426,10 +432,13 @@ impl Parser {
             "Expected `)` after arguments".to_string(),
         )?;
 
+        if let Some(err) = error {
+            return Err(err);
+        }
         Ok(Expr::call(callee, closing_paren, arguments))
     }
 
-    // primary  -> NUMBER | STRING | IDENTIFIER | "true" | "false" 
+    // primary  -> NUMBER | STRING | IDENTIFIER | "true" | "false"
     //           | "nil"  |  "(" expression ")";
     fn primary(&mut self) -> Result<Expr, Error> {
         if self.match_next(vec![
