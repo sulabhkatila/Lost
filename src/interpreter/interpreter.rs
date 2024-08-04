@@ -406,7 +406,6 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
             self.execute(&mut *statement)?;
 
             evaluated_condition = self.evaluate(condition)?;
-            println!("{:#?}", condition);
         }
 
         Ok(())

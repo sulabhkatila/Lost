@@ -16,8 +16,12 @@ pub struct Parser {
     declaration -> var_declaration | statement ;
 
     var_declaration    -> "var" IDENTIFIER ( "=" expression )? ";" ;
-    statement          -> expression_statement | while_statement | if_statement | print_statement | block ;
+    statement          -> expression_statement | for_statement | while_statement
+                        | if_statement | print_statement | block ;
 
+    for_statement      -> "for" "(" ( var_declaration | expression_statement | ";" )
+                        expression? ";"
+                        expression? ")" statement ;
     while_statement    -> "while" "(" expression ")" statement ;
     if_statement       -> "if" "(" expression ")" statement ("else" statement)? ;
     block              -> "{" declaration* "}" ;
@@ -38,6 +42,7 @@ pub struct Parser {
     primary     -> NUMBER | STRING | IDENTIFIER | "true" | "false"
                 | "nil" | "(" expression ")";
 */
+
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
@@ -115,9 +120,11 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  -> expression_statement | while_statement | if_statement | print_statement | block ;
+    // statement  -> expression_statement | for_statement | while_statement | if_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
-        if self.match_next(vec![TokenType::While]) {
+        if self.match_next(vec![TokenType::For]) {
+            self.for_statement()
+        } else if self.match_next(vec![TokenType::While]) {
             self.while_statement()
         } else if self.match_next(vec![TokenType::If]) {
             self.if_statement()
@@ -128,6 +135,81 @@ impl Parser {
         } else {
             self.expression_statement()
         }
+    }
+
+    // for_statement  -> "for" "(" ( var_declaration | expression_statement | ";" )
+    //                    expression? ";"
+    //                    expression? ")" statement ;
+    fn for_statement(&mut self) -> Result<Stmt, Error> {
+        self.consume(TokenType::LeftParen, "Expected `(` after `for`".to_string())?;
+
+        // for (var i = 0 ; i < 1 ; i = i + 1) {......}
+        //      ^^^         ^^^      ^^^           ^^^
+        // initializer   condition   incrementer   loop_body
+
+        let mut initializer: Option<Stmt> = None;
+        if self.match_next(vec![TokenType::SemiColon]) {
+            initializer = None
+        } else if (self.match_next(vec![TokenType::Var])) {
+            initializer = Some(self.var_declaration()?)
+        } else {
+            initializer = Some(self.expression_statement()?)
+        }
+
+        let mut condition: Option<Expr> = None;
+        if !self.check(TokenType::SemiColon) {
+            condition = Some(self.expression()?)
+        }
+        self.consume(
+            TokenType::SemiColon,
+            "Expected `;` after loop condition".to_string(),
+        )?;
+
+        let mut incrementer: Option<Expr> = None;
+        if !self.check(TokenType::SemiColon) {
+            incrementer = Some(self.expression()?)
+        }
+        self.consume(
+            TokenType::RightParen,
+            "Expected `)` after for clauses".to_string(),
+        )?;
+
+        let mut loop_body = self.statement()?;
+
+        // Desugar for loop into while loop
+        //
+        // this:
+        // for (var i = 0; i < 1; i = i + 1) {...}
+        //
+        // to:
+        // var i = 0;
+        // while (i < 1) {
+        // ...
+        // i = i + 1
+        // }
+
+        if let Some(incrementer_) = incrementer {
+            loop_body = Stmt::block(Box::new(vec![
+                loop_body,
+                Stmt::expression(Box::new(incrementer_)),
+            ]));
+        }
+
+        if let None = condition {
+            condition = Some(Expr::literal(Token::new(
+                TokenType::True,
+                "true".to_string(),
+                None,
+                1, // Line doesn't matter
+            )))
+        }
+        loop_body = Stmt::whileloop(Box::new(condition.unwrap()), Box::new(loop_body));
+
+        if let Some(initializer_) = initializer {
+            loop_body = Stmt::block(Box::new(vec![initializer_, loop_body]))
+        }
+
+        Ok(loop_body)
     }
 
     // while_statement  -> "while" "(" expression ")" statement ;
