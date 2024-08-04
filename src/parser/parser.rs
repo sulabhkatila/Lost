@@ -1,9 +1,6 @@
-use super::expr::*;
-use super::stmt::*;
-use crate::error::*;
-use crate::lexer::token::*;
+use super::{expr::*, stmt::*};
 
-use super::astprinter::*;
+use crate::{error::*, lexer::token::*};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -19,8 +16,9 @@ pub struct Parser {
     declaration -> var_declaration | statement ;
 
     var_declaration    -> "var" IDENTIFIER ( "=" expression )? ";" ;
-    statement          -> expression_statement | if_statement | print_statement | block ;
+    statement          -> expression_statement | while_statement | if_statement | print_statement | block ;
 
+    while_statement    -> "while" "(" expression ")" statement ;
     if_statement       -> "if" "(" expression ")" statement ("else" statement)? ;
     block              -> "{" declaration* "}" ;
 
@@ -117,9 +115,11 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  -> expression_statement | if_statement | print_statement | block ;
+    // statement  -> expression_statement | while_statement | if_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
-        if self.match_next(vec![TokenType::If]) {
+        if self.match_next(vec![TokenType::While]) {
+            self.while_statement()
+        } else if self.match_next(vec![TokenType::If]) {
             self.if_statement()
         } else if self.match_next(vec![TokenType::Print]) {
             self.print_statement()
@@ -128,6 +128,20 @@ impl Parser {
         } else {
             self.expression_statement()
         }
+    }
+
+    // while_statement  -> "while" "(" expression ")" statement ;
+    fn while_statement(&mut self) -> Result<Stmt, Error> {
+        self.consume(TokenType::LeftParen, "Expected `(` after while".to_string())?;
+        let condition = self.expression()?;
+        self.consume(
+            TokenType::RightParen,
+            "Expected `)` after condition".to_string(),
+        )?;
+
+        let loop_body = self.statement()?;
+
+        Ok(Stmt::WhileLoop(Box::new(condition), Box::new(loop_body)))
     }
 
     // if_statement  -> "if" "(" expression ")" statement ("else" statement)? ;
@@ -223,7 +237,7 @@ impl Parser {
         if self.match_next(vec![TokenType::Or]) {
             let logical_or = self.previous();
             let right_expr = self.logic_and()?;
-            return Ok(Expr::logical(left_expr, logical_or, right_expr))
+            return Ok(Expr::logical(left_expr, logical_or, right_expr));
         }
 
         Ok(left_expr)
@@ -236,7 +250,7 @@ impl Parser {
         if self.match_next(vec![TokenType::And]) {
             let logical_and = self.previous();
             let right_expr = self.equality()?;
-            return Ok(Expr::logical(left_expr, logical_and, right_expr))
+            return Ok(Expr::logical(left_expr, logical_and, right_expr));
         }
 
         Ok(left_expr)

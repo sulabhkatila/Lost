@@ -1,13 +1,14 @@
-use std::env;
-use std::fs;
-use std::io::{self, Write};
+use std::{
+    env, fs,
+    io::{self, Write},
+};
 
 use interpreter::Interpreter;
-use lost::interpreter::*;
-use lost::lexer::lexer::*;
-use lost::parser::astprinter::AstPrinter;
-use lost::parser::parser::*;
-use lost::parser::stmt::*;
+use lost::{
+    interpreter::*,
+    lexer::lexer::*,
+    parser::{astprinter::AstPrinter, parser::*},
+};
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
@@ -66,10 +67,12 @@ fn run(code: String) {
             let mut interpreter = Interpreter::new(None);
             let interpreter_res = interpreter.interpret(&mut val_vec);
             match interpreter_res {
-                Ok(_) => {},
-                Err(error) => {println!("{:#?}", error)},
+                Ok(_) => {}
+                Err(error) => {
+                    println!("{:#?}", error)
+                }
             }
         }
-        _ => println!("Error on parsing"),
+        Err(error) => println!("{:#?}", error),
     }
 }

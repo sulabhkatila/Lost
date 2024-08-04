@@ -1,23 +1,27 @@
-use super::environment;
-use super::environment::*;
-use super::environment::*;
-use super::types::*;
-use crate::error::*;
-use crate::lexer::token::*;
-use crate::parser::expr::Visitor as ExpressionVisitor;
-use crate::parser::expr::*;
-use crate::parser::stmt::Visitable as StatementVisitable;
-use crate::parser::stmt::Visitor as StatementVisitor;
-use crate::parser::stmt::*;
+use std::{cell::RefCell, rc::Rc};
+
+use super::{environment::*, types::*};
+
+use crate::{
+    error::*,
+    lexer::token::*,
+    parser::{
+        expr::{Visitor as ExpressionVisitor, *},
+        stmt::{Visitable as StatementVisitable, Visitor as StatementVisitor, *},
+    },
+};
 
 pub struct Interpreter {
-    environment: Environment,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new(enclosing: Option<Environment>) -> Interpreter {
         Interpreter {
-            environment: Environment::new(enclosing),
+            environment: Rc::new(RefCell::new(Environment::new(match enclosing {
+                Some(parent_environment) => Some(Rc::new(RefCell::new(parent_environment))),
+                None => None,
+            }))),
         }
     }
 
@@ -76,17 +80,17 @@ impl Interpreter {
     // Determines the truthiness of a Type value.
     // Returns true for non-empty strings, non-zero numbers, and true booleans.
     // Returns false for zero numbers, false booleans, and Nil values.
-    pub fn is_truthly(&self, value: Type) -> bool {
+    pub fn is_truthly(&self, value: &Type) -> bool {
         match value {
             Type::String(_) => true,
             Type::Number(val) => {
-                if val == 0.0 {
+                if *val == 0.0 {
                     false
                 } else {
                     true
                 }
             }
-            Type::Boolean(val) => val,
+            Type::Boolean(val) => *val,
             Type::Nil => false,
         }
     }
@@ -94,9 +98,9 @@ impl Interpreter {
     pub fn execute_block(
         &mut self,
         statements: &mut Box<Vec<Stmt>>,
-        environment: Environment,
+        environment: Rc<RefCell<Environment>>,
     ) -> Result<(), Error> {
-        let temp = self.environment.clone();
+        let temp = Rc::clone(&self.environment);
 
         self.environment = environment;
 
@@ -233,7 +237,7 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
                     }
                 }))
             }
-            TokenType::Bang => return Ok(Type::Boolean(!self.is_truthly(right))),
+            TokenType::Bang => return Ok(Type::Boolean(!self.is_truthly(&right))),
             _ => {
                 return Err(Error::interpreter(
                     format!("Expected `!` or `-`, got {}", operator),
@@ -297,12 +301,14 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
     }
 
     fn visit_variable(&mut self, variable: &Token) -> Result<Type, Error> {
-        self.environment.get(variable)
+        (*self.environment).borrow().get(variable)
     }
 
     fn visit_assign(&mut self, variable: &Token, expr: &mut Box<Expr>) -> Result<Type, Error> {
         let value = self.evaluate(expr)?;
-        let _ = self.environment.assign(variable.clone(), value.clone())?;
+        let _ = (*self.environment)
+            .borrow_mut()
+            .assign(variable, value.clone())?;
         Ok(value)
     }
 
@@ -316,16 +322,19 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
         match logical_and_or.token_type {
             TokenType::Or => {
-                if self.is_truthly(left_value.clone()) {
+                if self.is_truthly(&left_value) {
                     return Ok(left_value);
                 }
-            },
+            }
             TokenType::And => {
-                if !self.is_truthly(left_value.clone()) {
+                if !self.is_truthly(&left_value) {
                     return Ok(left_value);
                 }
-            },
-            _ => {println!("{:#?}", &logical_and_or);unreachable!()},
+            }
+            _ => {
+                println!("{:#?}", &logical_and_or);
+                unreachable!()
+            }
         }
 
         self.evaluate(&right_expr)
@@ -334,13 +343,12 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
 impl StatementVisitor<Result<(), Error>> for Interpreter {
     fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> Result<(), Error> {
-        self.execute_block(statements, Environment::new(Some(self.environment.clone())))?;
+        self.execute_block(statements, Rc::clone(&self.environment))?;
         Ok(())
     }
 
     fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
-        let value = self.evaluate(expr)?;
-        println!("{}", value);
+        let _ = self.evaluate(expr)?;
 
         Ok(())
     }
@@ -358,9 +366,13 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         match expr {
             Some(val) => {
                 let val = self.evaluate(val)?;
-                self.environment.define(token.lexeme.clone(), val);
+                (*self.environment)
+                    .borrow_mut()
+                    .define(token.lexeme.clone(), val.clone());
             }
-            _ => self.environment.define(token.lexeme.clone(), Type::Nil),
+            _ => (*self.environment)
+                .borrow_mut()
+                .define(token.lexeme.clone(), Type::Nil),
         }
         Ok(())
     }
@@ -372,7 +384,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         else_branch: &Option<Box<Stmt>>,
     ) -> Result<(), Error> {
         let condition_evaluated = self.evaluate(condition)?;
-        if self.is_truthly(condition_evaluated) {
+        if self.is_truthly(&condition_evaluated) {
             let mut then_branch = then_branch.clone();
             self.execute(&mut then_branch)
         } else {
@@ -381,5 +393,22 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
                 _ => return Ok(()),
             }
         }
+    }
+
+    fn visit_whileloop(
+        &mut self,
+        condition: &Box<Expr>,
+        statement: &mut Box<Stmt>,
+    ) -> Result<(), Error> {
+        let mut evaluated_condition = self.evaluate(condition)?;
+
+        while self.is_truthly(&evaluated_condition) {
+            self.execute(&mut *statement)?;
+
+            evaluated_condition = self.evaluate(condition)?;
+            println!("{:#?}", condition);
+        }
+
+        Ok(())
     }
 }

@@ -1,4 +1,5 @@
 use super::expr::*;
+
 use crate::lexer::token::*;
 
 #[derive(Debug, Clone)]
@@ -8,6 +9,7 @@ pub enum Stmt {
     IfElse(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>), // Condition, Then_branch, Else_branch
     Print(Box<Expr>),
     Var(Token, Option<Box<Expr>>),
+    WhileLoop(Box<Expr>, Box<Stmt>),
 }
 
 impl Stmt {
@@ -34,6 +36,10 @@ impl Stmt {
     pub fn var(variable_name: Token, expr: Option<Box<Expr>>) -> Stmt {
         Stmt::Var(variable_name, expr)
     }
+
+    pub fn whileloop(condition: Box<Expr>, statement: Box<Stmt>) -> Stmt {
+        Stmt::WhileLoop(condition, statement)
+    }
 }
 
 pub trait Visitable<T> {
@@ -50,6 +56,7 @@ impl<T> Visitable<T> for Stmt {
             }
             Stmt::Print(expr) => visitor.visit_print(expr),
             Stmt::Var(token, expr) => visitor.visit_var(&token, &expr),
+            Stmt::WhileLoop(condition, statement) => visitor.visit_whileloop(condition, statement),
         }
     }
 }
@@ -66,4 +73,5 @@ pub trait Visitor<T> {
     ) -> T;
     fn visit_print(&mut self, expr: &Box<Expr>) -> T;
     fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> T;
+    fn visit_whileloop(&mut self, condition: &Box<Expr>, statement: &mut Box<Stmt>) -> T;
 }
