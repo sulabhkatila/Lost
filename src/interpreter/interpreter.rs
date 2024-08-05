@@ -339,6 +339,15 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
         self.evaluate(&right_expr)
     }
+    
+    fn visit_call(
+        &mut self,
+        callee: &mut Box<Expr>,
+        closing_paren: &Token,
+        arguments: &mut Box<Vec<Expr>>,
+    ) -> Result<Type, Error> {
+        todo!()
+    }
 }
 
 impl StatementVisitor<Result<(), Error>> for Interpreter {

@@ -1,13 +1,6 @@
 use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
-pub enum ErrorType {
-    LexError,
-    ParseError,
-    InterpretError,
-}
-
-#[derive(Debug, Clone)]
 pub enum Error {
     LexError(String, usize),
     ParseError(String, usize),

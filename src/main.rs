@@ -58,21 +58,26 @@ fn run(code: String) {
     let mut lexer: Lexer = Lexer::new(code);
     lexer.scan();
 
-    let mut parser = Parser::new(lexer.tokens);
-    let parsed = parser.parse();
+    let tokens = lexer.tokens;
 
-    let ast_printer = AstPrinter;
-    match parsed {
-        Ok(mut val_vec) => {
-            let mut interpreter = Interpreter::new(None);
-            let interpreter_res = interpreter.interpret(&mut val_vec);
-            match interpreter_res {
-                Ok(_) => {}
-                Err(error) => {
-                    println!("{:#?}", error)
-                }
-            }
+    let mut parser = Parser::new(tokens);
+    parser.parse();
+
+    let parser_errors = parser.get_errors();
+
+    if parser_errors.len() > 0 {
+        for parser_error in parser_errors {
+            parser_error.report()
         }
-        Err(error) => println!("{:#?}", error),
+
+        return;
+    }
+
+    let statements = parser.get_parsed_statements();
+    let ast_printer = AstPrinter;
+    let mut interpreter = Interpreter::new(None);
+
+    if let Err(interpreter_err) = interpreter.interpret(statements) {
+        interpreter_err.report();
     }
 }

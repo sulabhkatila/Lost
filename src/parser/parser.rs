@@ -5,7 +5,8 @@ use crate::{error::*, lexer::token::*};
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    errors: Vec<Error>,
+    statements: Vec<Box<Stmt>>,
+    errors: Vec<Box<Error>>,
 }
 
 /*
@@ -50,20 +51,27 @@ impl Parser {
         Parser {
             tokens,
             current: 0,
+            statements: Vec::new(),
             errors: Vec::new(),
         }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Box<Stmt>>, Error> {
-        let mut statements: Vec<Box<Stmt>> = Vec::new();
+    pub fn get_parsed_statements(&mut self) -> &mut Vec<Box<Stmt>> {
+        &mut self.statements
+    }
 
+    pub fn get_errors(&mut self) -> &Vec<Box<Error>> {
+        &self.errors
+    }
+
+    pub fn parse(&mut self) {
         // program  -> statement* EOF ;
         while !self.is_at_end() {
-            // let mut new_statement_box = Box::new(self.statement()?); // old one
-            // statements.push(self.statement()?);
-            statements.push(Box::new(self.declaration()?));
+            match self.declaration() {
+                Ok(statement) => self.statements.push(Box::new(statement)),
+                Err(_) => self.synchronize(),
+            }
         }
-        Ok(statements)
     }
 
     // Synchronizing to avoid cacading errors
@@ -71,7 +79,6 @@ impl Parser {
         // Call upon encountering a ParseError
         // Parser will ignore all-tokens till and including ";"
         // or untill encountering start of new statement
-        self.advance();
 
         while !self.is_at_end() {
             if self.previous().token_type == TokenType::SemiColon {
@@ -304,10 +311,7 @@ impl Parser {
             match left_side_identifier {
                 Expr::Variable(token) => return Ok(Expr::Assign(token, Box::new(right_side_expr))),
                 _ => {
-                    return Err(Error::parser(
-                        "Invalid assignment target".to_string(),
-                        equals.line,
-                    ))
+                    return Err(self.push_error("Invalid assignment target".to_string()));
                 }
             }
         }
@@ -414,11 +418,10 @@ impl Parser {
         if !self.check(TokenType::RightParen) {
             loop {
                 if arguments.len() >= 255 {
-                    error = Some(Error::ParseError(
-                        "Too many arguments. A function can't have more than 255 arguments"
+                    let _ = self.push_error(
+                        "Too many arguments. (A function can have at max 255 arguments)"
                             .to_string(),
-                        self.previous().line,
-                    ));
+                    );
                 }
                 arguments.push(self.expression()?);
                 if self.match_next(vec![TokenType::Comma]) {
@@ -491,8 +494,8 @@ impl Parser {
     // Add error to the list
     // Let main handle reporting
     fn push_error(&mut self, error_message: String) -> Error {
-        let error = Error::parser(error_message, self.peek().line);
-        self.errors.push(error.clone());
+        let error = Error::parser(error_message, self.previous().line);
+        self.errors.push(Box::new(error.clone()));
         error
     }
 

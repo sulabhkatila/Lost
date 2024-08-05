@@ -64,6 +64,9 @@ impl<'lexer> Lexer<'lexer> {
     fn scan_token(&mut self) {
         let c = self.advance(); // Get current char and move current index
         match c {
+            // New line
+            '\n' => self.line += 1,
+
             // Single Character tokens
             '(' => self.add_token(TokenType::LeftParen, None),
             ')' => self.add_token(TokenType::RightParen, None),
@@ -149,7 +152,7 @@ impl<'lexer> Lexer<'lexer> {
                     self.errors
                         .push(Error::lexer("Unexpected Token".to_string(), self.line));
                 }
-            }
+            },
         }
     }
 
