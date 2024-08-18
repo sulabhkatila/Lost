@@ -14,7 +14,11 @@ pub struct Parser {
 
     program     -> declaration* EOF ;
 
-    declaration -> var_declaration | statement ;
+    declaration -> fun_declaration | var_declaration | statement ;
+
+    fun_declaration    -> "fun" function ;
+    function           -> IDENTIFIER "(" parameters? ")" block ;
+    parameters         -> IDENTIFIER ( "," IDENTIFIER )* ;
 
     var_declaration    -> "var" IDENTIFIER ( "=" expression )? ";" ;
     statement          -> expression_statement | for_statement | while_statement
@@ -103,14 +107,53 @@ impl Parser {
         }
     }
 
-    // declaration -> var_declaration | statement ;
+    // declaration -> fun_declaration | var_declaration | statement ;
     // just a special statement
     fn declaration(&mut self) -> Result<Stmt, Error> {
-        if self.match_next(vec![TokenType::Var]) {
+        if self.match_next(vec![TokenType::Fun]) {
+            Ok(self.fun_declaration()?)
+        } else if self.match_next(vec![TokenType::Var]) {
             Ok(self.var_declaration()?)
         } else {
             Ok(self.statement()?)
         }
+    }
+
+    // fun_declaration -> "fun" IDENTIFIER "(" parameters ")" block ;
+    fn fun_declaration(&mut self) -> Result<Stmt, Error> {
+        self.function(String::from("function"))
+    }
+
+    fn function(&mut self, callable_type: String) -> Result<Stmt, Error> {
+        let name = self.consume(
+            TokenType::Identifier,
+            format!("Expected a {} name", callable_type),
+        )?;
+
+        let mut parameters = Vec::new();
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() == 255 {
+                    self.push_error("Too many parameters: 255 parameters allowed".to_string());
+                }
+
+                parameters.push(self.consume(
+                    TokenType::Identifier,
+                    "Expected a parameter name".to_string(),
+                )?);
+                if !self.match_next(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+
+            self.consume(
+                TokenType::RightParen,
+                "Expected a `)` after parameters".to_string(),
+            );
+        }
+
+        let body = self.block()?;
+        Ok(Stmt::function(name, Box::new(parameters), Box::new(body)))
     }
 
     // var_declaration -> "var" IDENTIFIER ( "=" expression )? ";" ;

@@ -1,4 +1,4 @@
-use super::expr::*;
+use super::expr::{self, *};
 
 use crate::lexer::token::*;
 
@@ -6,6 +6,7 @@ use crate::lexer::token::*;
 pub enum Stmt {
     Block(Box<Vec<Stmt>>),
     Expression(Box<Expr>),
+    Function(Token, Box<Vec<Token>>, Box<Vec<Stmt>>),
     IfElse(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>), // Condition, Then_branch, Else_branch
     Print(Box<Expr>),
     Var(Token, Option<Box<Expr>>),
@@ -19,6 +20,10 @@ impl Stmt {
 
     pub fn expression(expr: Box<Expr>) -> Stmt {
         Stmt::Expression(expr)
+    }
+
+    pub fn function(name: Token, parameters: Box<Vec<Token>>, body: Box<Vec<Stmt>>) -> Stmt {
+        Stmt::Function(name, parameters, body)
     }
 
     pub fn ifelse(
@@ -51,6 +56,9 @@ impl<T> Visitable<T> for Stmt {
         match self {
             Stmt::Block(statements) => visitor.visit_block(statements),
             Stmt::Expression(expr) => visitor.visit_expression(expr),
+            Stmt::Function(name, parameters, body) => {
+                visitor.visit_function(name, parameters, body)
+            }
             Stmt::IfElse(condition, then_branch, else_branch) => {
                 visitor.visit_ifelse(condition, then_branch, else_branch)
             }
@@ -74,4 +82,10 @@ pub trait Visitor<T> {
     fn visit_print(&mut self, expr: &Box<Expr>) -> T;
     fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> T;
     fn visit_whileloop(&mut self, condition: &Box<Expr>, statement: &mut Box<Stmt>) -> T;
+    fn visit_function(
+        &mut self,
+        name: &Token,
+        parameters: &Box<Vec<Token>>,
+        body: &mut Box<Vec<Stmt>>,
+    ) -> T;
 }
