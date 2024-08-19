@@ -1,4 +1,9 @@
-use std::{borrow::Borrow, cell::RefCell, rc::Rc};
+use std::{
+    borrow::Borrow,
+    cell::{Ref, RefCell},
+    rc::Rc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::{environment::*, types::*};
 
@@ -12,12 +17,32 @@ use crate::{
 };
 
 pub struct Interpreter {
+    globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new(enclosing: Option<Environment>) -> Interpreter {
+        let mut globals = Environment::new(None);
+
+        // Native Functions
+        fn clock() {
+            let start = SystemTime::now();
+            let since_the_epoch = start
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards");
+            let milli_secs = since_the_epoch.as_secs() * 1000
+                + since_the_epoch.subsec_nanos() as u64 / 1_000_000;
+            println!("{}", milli_secs)
+        }
+
+        globals.define(
+            "clock".to_string(),
+            Type::NativeFunction(Box::new(NativeFunction::new("clock".to_string(), clock))),
+        );
+
         Interpreter {
+            globals: Rc::new(RefCell::new(globals)),
             environment: Rc::new(RefCell::new(Environment::new(match enclosing {
                 Some(parent_environment) => Some(Rc::new(RefCell::new(parent_environment))),
                 None => None,
@@ -73,7 +98,8 @@ impl Interpreter {
                 Type::String(right_val) => left_val == right_val,
                 _ => false,
             },
-            Type::Function(func) => todo!(),
+            Type::Function(fun) => todo!(),
+            Type::NativeFunction(fun) => todo!(),
         }
     }
 
@@ -92,6 +118,7 @@ impl Interpreter {
             }
             Type::Boolean(val) => *val,
             Type::Function(fun) => todo!(),
+            Type::NativeFunction(fun) => todo!(),
             Type::Nil => false,
         }
     }
@@ -362,7 +389,16 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
                         closing_paren.line,
                     ));
                 }
-                Ok(to_call.call()?)
+                to_call.call(None)
+            }
+            Type::NativeFunction(to_call) => {
+                if to_call.arity != evaluated_arguments.len() {
+                    return Err(Error::interpreter(
+                        "Number of arguments does not match number of parameters".to_string(),
+                        closing_paren.line,
+                    ));
+                }
+                to_call.call(None)
             }
             _ => Err(Error::interpreter(
                 "Not a function".to_string(),
