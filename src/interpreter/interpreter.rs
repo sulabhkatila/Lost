@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use super::{environment::*, types::*};
 
@@ -61,7 +61,6 @@ impl Interpreter {
                 Type::Nil => true,
                 _ => false,
             },
-
             Type::Boolean(left_val) => match right_expr {
                 Type::Boolean(right_val) => left_val == right_val,
                 _ => false,
@@ -74,6 +73,7 @@ impl Interpreter {
                 Type::String(right_val) => left_val == right_val,
                 _ => false,
             },
+            Type::Function(func) => todo!(),
         }
     }
 
@@ -91,6 +91,7 @@ impl Interpreter {
                 }
             }
             Type::Boolean(val) => *val,
+            Type::Function(fun) => todo!(),
             Type::Nil => false,
         }
     }
@@ -339,14 +340,27 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
         self.evaluate(&right_expr)
     }
-    
+
     fn visit_call(
         &mut self,
         callee: &mut Box<Expr>,
         closing_paren: &Token,
         arguments: &mut Box<Vec<Expr>>,
     ) -> Result<Type, Error> {
-        todo!()
+        let callee = self.evaluate(callee)?;
+
+        let mut evaluated_arguments = Vec::new();
+        for argument in &mut (**arguments) {
+            evaluated_arguments.push(self.evaluate(&Box::new(argument.clone())));
+        }
+
+        match callee {
+            Type::Function(to_call) => Ok(to_call.call()?),
+            _ => Err(Error::interpreter(
+                "Not a function".to_string(),
+                closing_paren.line,
+            )),
+        }
     }
 }
 
@@ -418,5 +432,14 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         }
 
         Ok(())
+    }
+
+    fn visit_function(
+        &mut self,
+        name: &Token,
+        parameters: &Box<Vec<Token>>,
+        body: &mut Box<Vec<Stmt>>,
+    ) -> Result<(), Error> {
+        todo!()
     }
 }
