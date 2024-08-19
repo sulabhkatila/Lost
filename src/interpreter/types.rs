@@ -17,7 +17,8 @@ pub struct NativeFunction {}
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    name: String,
+    pub name: String,
+    pub arity: usize,
 }
 
 impl Function {

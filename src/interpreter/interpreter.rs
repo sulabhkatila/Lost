@@ -355,7 +355,15 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
         }
 
         match callee {
-            Type::Function(to_call) => Ok(to_call.call()?),
+            Type::Function(to_call) => {
+                if to_call.arity != evaluated_arguments.len() {
+                    return Err(Error::interpreter(
+                        "Number of arguments does not match number of parameters".to_string(),
+                        closing_paren.line,
+                    ));
+                }
+                Ok(to_call.call()?)
+            }
             _ => Err(Error::interpreter(
                 "Not a function".to_string(),
                 closing_paren.line,
