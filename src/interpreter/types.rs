@@ -9,28 +9,47 @@ string      String
 
 */
 
-use std::{collections::HashMap, fmt};
+use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-use crate::{error::Error, lexer::token::Token};
+use crate::{error::Error, lexer::token::Token, parser::stmt::Stmt};
+
+use super::{
+    environment::{self, Environment},
+    interpreter::Interpreter,
+};
 
 pub trait Callable {
     fn arity(&self) -> usize;
-    fn call(&self, arguments: Option<Vec<Type>>) -> Result<Type, Error>;
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Option<Vec<Type>>,
+    ) -> Result<Type, Error>;
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub name: String,
+    pub name: Token,
     pub arity: usize,
+    pub declaration: Rc<RefCell<Stmt>>,
 }
 
 impl Function {
-    pub fn new(name: String, parameters: Option<Vec<Token>>) -> Function {
+    pub fn new(
+        name: Token,
+        parameters: Option<Vec<Token>>,
+        declaration: Rc<RefCell<Stmt>>,
+    ) -> Function {
+        let declaration_borrowed = declaration.borrow();
         Function {
             name,
             arity: match parameters {
                 Some(parameters) => parameters.len(),
                 None => 0,
+            },
+            declaration: match &*declaration_borrowed {
+                Stmt::Function(_, _, _) => Rc::clone(&declaration),
+                _ => panic!("Tried to create a funciton with non funciton body"),
             },
         }
     }
@@ -41,14 +60,34 @@ impl Callable for Function {
         self.arity
     }
 
-    fn call(&self, arguments: Option<Vec<Type>>) -> Result<Type, Error> {
-        todo!()
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Option<Vec<Type>>,
+    ) -> Result<Type, Error> {
+        let mut environment = Environment::new(Some(Rc::clone(&interpreter.globals)));
+        let arguments = arguments.unwrap_or_else(|| Vec::<Type>::new());
+
+        match &mut *self.declaration.borrow_mut() {
+            Stmt::Function(name, parameters, body) => {
+                for i in 0..parameters.len() {
+                    environment.define(parameters[i].lexeme.clone(), arguments[i].clone())
+                }
+
+                let _ = interpreter.execute_block(body, Rc::new(RefCell::new(environment)))?;
+                Ok(Type::Nil)
+            }
+            _ => Err(Error::interpreter(
+                "Calling a non-callable".to_string(),
+                self.name.line,
+            )),
+        }
     }
 }
 
 impl ToString for Function {
     fn to_string(&self) -> String {
-        self.name.clone()
+        self.name.to_string()
     }
 }
 
@@ -75,7 +114,11 @@ impl Callable for NativeFunction {
         self.arity
     }
 
-    fn call(&self, arguments: Option<Vec<Type>>) -> Result<Type, Error> {
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Option<Vec<Type>>,
+    ) -> Result<Type, Error> {
         let res = (self.to_call)();
 
         Ok(Type::Nil) // Native Functions will reutrn nothing for now
