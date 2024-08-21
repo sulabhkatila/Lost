@@ -501,4 +501,8 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         environement.define(name.lexeme.clone(), Type::Function(Box::new(function)));
         Ok(())
     }
+
+    fn visit_return(&mut self, token: &Token, expr: &Box<Expr>) -> Result<(), Error> {
+        todo!()
+    }
 }

@@ -9,6 +9,7 @@ pub enum Stmt {
     Function(Token, Box<Vec<Token>>, Box<Vec<Stmt>>),
     IfElse(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>), // Condition, Then_branch, Else_branch
     Print(Box<Expr>),
+    Return(Token, Box<Expr>),
     Var(Token, Option<Box<Expr>>),
     WhileLoop(Box<Expr>, Box<Stmt>),
 }
@@ -38,6 +39,9 @@ impl Stmt {
         Stmt::Print(expr)
     }
 
+    pub fn ret(keyword: Token, expr: Box<Expr>) -> Stmt {
+        Stmt::Return(keyword, expr)
+    }
     pub fn var(variable_name: Token, expr: Option<Box<Expr>>) -> Stmt {
         Stmt::Var(variable_name, expr)
     }
@@ -63,6 +67,7 @@ impl<T> Visitable<T> for Stmt {
                 visitor.visit_ifelse(condition, then_branch, else_branch)
             }
             Stmt::Print(expr) => visitor.visit_print(expr),
+            Stmt::Return(token, expr) => visitor.visit_return(&token, &expr),
             Stmt::Var(token, expr) => visitor.visit_var(&token, &expr),
             Stmt::WhileLoop(condition, statement) => visitor.visit_whileloop(condition, statement),
         }
@@ -80,6 +85,7 @@ pub trait Visitor<T> {
         else_branch: &Option<Box<Stmt>>,
     ) -> T;
     fn visit_print(&mut self, expr: &Box<Expr>) -> T;
+    fn visit_return(&mut self, token: &Token, expr: &Box<Expr>) -> T;
     fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> T;
     fn visit_whileloop(&mut self, condition: &Box<Expr>, statement: &mut Box<Stmt>) -> T;
     fn visit_function(

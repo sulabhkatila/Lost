@@ -23,13 +23,14 @@ pub struct Parser {
 
     var_declaration    -> "var" IDENTIFIER ( "=" expression )? ";" ;
     statement          -> expression_statement | for_statement | while_statement
-                        | if_statement | print_statement | block ;
+                        | if_statement | print_statement | return_statement | block ;
 
     for_statement      -> "for" "(" ( var_declaration | expression_statement | ";" )
                         expression? ";"
                         expression? ")" statement ;
     while_statement    -> "while" "(" expression ")" statement ;
     if_statement       -> "if" "(" expression ")" statement ("else" statement)? ;
+    return_statement   -> "return" expression? ;
     block              -> "{" declaration* "}" ;
 
     expression_statement    -> expression ";" ;
@@ -181,7 +182,8 @@ impl Parser {
         Ok(Stmt::var(variable_name, initializer))
     }
 
-    // statement  -> expression_statement | for_statement | while_statement | if_statement | print_statement | block ;
+    // statement  -> expression_statement | for_statement | while_statement | if_statement
+    //              | print_statement | return_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::For]) {
             self.for_statement()
@@ -191,6 +193,8 @@ impl Parser {
             self.if_statement()
         } else if self.match_next(vec![TokenType::Print]) {
             self.print_statement()
+        } else if self.match_next(vec![TokenType::Return]) {
+            self.return_statement()
         } else if self.match_next(vec![TokenType::LeftBrace]) {
             Ok(Stmt::block(Box::new(self.block()?)))
         } else {
@@ -312,6 +316,17 @@ impl Parser {
             Box::new(then_branch),
             None,
         ))
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, Error> {
+        let return_keyword = self.previous();
+        let mut return_value = Expr::literal(Token::new(TokenType::Nil, "nil".to_string(), None, return_keyword.line));
+
+        if !self.check(TokenType::SemiColon) {
+            return_value = self.expression()?
+        }
+
+        Ok(Stmt::ret(return_keyword, Box::new(return_value)))
     }
 
     // block  -> "{" declaration* "}" ;
