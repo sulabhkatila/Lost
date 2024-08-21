@@ -151,18 +151,18 @@ impl Parser {
                     break;
                 }
             }
-
-            let _ = self.consume(
-                TokenType::RightParen,
-                "Expected a `)` after parameters".to_string(),
-            );
         }
+        let _ = self.consume(
+            TokenType::RightParen,
+            "Expected a `)` after parameters".to_string(),
+        );
 
         let _ = self.consume(
             TokenType::LeftBrace,
             "Expected `{` in function declaration and define function block".to_string(),
         );
         let body = self.block()?;
+
         Ok(Stmt::function(name, Box::new(parameters), Box::new(body)))
     }
 
@@ -318,13 +318,24 @@ impl Parser {
         ))
     }
 
+    // return_statement  -> "return" expression? ;
     fn return_statement(&mut self) -> Result<Stmt, Error> {
         let return_keyword = self.previous();
-        let mut return_value = Expr::literal(Token::new(TokenType::Nil, "nil".to_string(), None, return_keyword.line));
+        let mut return_value = Expr::literal(Token::new(
+            TokenType::Nil,
+            "nil".to_string(),
+            None,
+            return_keyword.line,
+        ));
 
         if !self.check(TokenType::SemiColon) {
             return_value = self.expression()?
         }
+
+        let _ = self.consume(
+            TokenType::SemiColon,
+            "Expected a `;` in the end of a statement".to_string(),
+        )?;
 
         Ok(Stmt::ret(return_keyword, Box::new(return_value)))
     }

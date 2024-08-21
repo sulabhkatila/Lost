@@ -50,16 +50,16 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, expr_vec: &mut Vec<Box<Stmt>>) -> Result<(), Error> {
+    pub fn interpret(&mut self, expr_vec: &mut Vec<Box<Stmt>>) -> Result<Option<Type>, Error> {
         for expr in expr_vec {
             let _ = self.execute(expr)?;
         }
-        Ok(())
+        Ok(None)
     }
 
-    fn execute(&mut self, stmt: &mut Stmt) -> Result<(), Error> {
-        stmt.accept(self)?;
-        Ok(())
+    fn execute(&mut self, stmt: &mut Stmt) -> Result<Option<Type>, Error> {
+        let return_value = stmt.accept(self)?;
+        Ok(return_value)
     }
 
     fn evaluate(&mut self, expr: &Box<Expr>) -> Result<Type, Error> {
@@ -127,23 +127,28 @@ impl Interpreter {
         &mut self,
         statements: &mut Box<Vec<Stmt>>,
         environment: Rc<RefCell<Environment>>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Type>, Error> {
         let temp = Rc::clone(&self.environment);
 
         self.environment = environment;
 
+        let mut return_value = None;
         for statement in (*statements).as_mut().iter_mut() {
             match self.execute(statement) {
                 Err(error) => {
                     self.environment = temp;
                     return Err(error);
                 }
-                Ok(_) => {}
+                Ok(value) => {
+                    if let Some(return_val) = value {
+                        return_value = Some(return_val)
+                    }
+                }
             };
         }
 
         self.environment = temp;
-        Ok(())
+        Ok(return_value)
     }
 }
 
@@ -408,26 +413,30 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
     }
 }
 
-impl StatementVisitor<Result<(), Error>> for Interpreter {
-    fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> Result<(), Error> {
+impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
+    fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> Result<Option<Type>, Error> {
         self.execute_block(statements, Rc::clone(&self.environment))?;
-        Ok(())
+        Ok(None)
     }
 
-    fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
+    fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
         let _ = self.evaluate(expr)?;
 
-        Ok(())
+        Ok(None)
     }
 
-    fn visit_print(&mut self, expr: &Box<Expr>) -> Result<(), Error> {
+    fn visit_print(&mut self, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
         let value = self.evaluate(expr)?;
         println!("{}", value);
 
-        Ok(())
+        Ok(None)
     }
 
-    fn visit_var(&mut self, token: &Token, expr: &Option<Box<Expr>>) -> Result<(), Error> {
+    fn visit_var(
+        &mut self,
+        token: &Token,
+        expr: &Option<Box<Expr>>,
+    ) -> Result<Option<Type>, Error> {
         // token is the variable
         // expr is the value for the variable // initializer
         match expr {
@@ -441,7 +450,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
                 .borrow_mut()
                 .define(token.lexeme.clone(), Type::Nil),
         }
-        Ok(())
+        Ok(None)
     }
 
     fn visit_ifelse(
@@ -449,7 +458,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         condition: &Box<Expr>,
         then_branch: &Box<Stmt>,
         else_branch: &Option<Box<Stmt>>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Type>, Error> {
         let condition_evaluated = self.evaluate(condition)?;
         if self.is_truthly(&condition_evaluated) {
             let mut then_branch = then_branch.clone();
@@ -457,7 +466,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         } else {
             match else_branch {
                 Some(else_branch) => self.execute(&mut (**else_branch).clone()),
-                _ => return Ok(()),
+                _ => return Ok(None),
             }
         }
     }
@@ -466,7 +475,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         &mut self,
         condition: &Box<Expr>,
         statement: &mut Box<Stmt>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Type>, Error> {
         let mut evaluated_condition = self.evaluate(condition)?;
 
         while self.is_truthly(&evaluated_condition) {
@@ -475,7 +484,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
             evaluated_condition = self.evaluate(condition)?;
         }
 
-        Ok(())
+        Ok(None)
     }
 
     fn visit_function(
@@ -483,7 +492,7 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         name: &Token,
         parameters: &Box<Vec<Token>>,
         body: &mut Box<Vec<Stmt>>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Type>, Error> {
         let function_name = name.clone();
         let arity = parameters.len();
 
@@ -499,10 +508,10 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         let mut environement = self.environment.borrow_mut();
 
         environement.define(name.lexeme.clone(), Type::Function(Box::new(function)));
-        Ok(())
+        Ok(None)
     }
 
-    fn visit_return(&mut self, token: &Token, expr: &Box<Expr>) -> Result<(), Error> {
-        todo!()
+    fn visit_return(&mut self, token: &Token, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
+        Ok(Some(self.evaluate(expr)?))
     }
 }

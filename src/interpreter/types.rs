@@ -66,9 +66,10 @@ impl Callable for Function {
                 for i in 0..parameters.len() {
                     environment.define(parameters[i].lexeme.clone(), arguments[i].clone())
                 }
-
-                let _ = interpreter.execute_block(body, Rc::new(RefCell::new(environment)))?;
-                Ok(Type::Nil)
+                match interpreter.execute_block(body, Rc::new(RefCell::new(environment)))? {
+                    Some(return_value) => Ok(return_value),
+                    None => Ok(Type::Nil),
+                }
             }
             _ => Err(Error::interpreter(
                 "Calling a non-callable".to_string(),
@@ -150,11 +151,11 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Type::String(val) => write!(f, "String {}", val),
-            Type::Number(val) => write!(f, "Number {}", val),
-            Type::Boolean(val) => write!(f, "Boolean {}", val),
-            Type::Function(fun) => write!(f, "Function {}", fun.to_string()),
-            Type::NativeFunction(fun) => write!(f, "Native Function {}", fun.to_string()),
+            Type::String(val) => write!(f, "{}", val),
+            Type::Number(val) => write!(f, "{}", val),
+            Type::Boolean(val) => write!(f, "{}", val),
+            Type::Function(fun) => write!(f, "Function <{}>", fun.to_string()),
+            Type::NativeFunction(fun) => write!(f, "Native Function <{}>", fun.to_string()),
             Type::Nil => write!(f, "nil"),
         }
     }
