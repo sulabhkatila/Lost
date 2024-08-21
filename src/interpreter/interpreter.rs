@@ -378,7 +378,7 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
         let mut evaluated_arguments = Vec::new();
         for argument in &mut (**arguments) {
-            evaluated_arguments.push(self.evaluate(&Box::new(argument.clone())));
+            evaluated_arguments.push(self.evaluate(&Box::new(argument.clone()))?);
         }
 
         match callee {
@@ -389,7 +389,7 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
                         closing_paren.line,
                     ));
                 }
-                to_call.call(self, None)
+                to_call.call(self, Some(evaluated_arguments))
             }
             Type::NativeFunction(to_call) => {
                 if to_call.arity != evaluated_arguments.len() {
@@ -484,6 +484,21 @@ impl StatementVisitor<Result<(), Error>> for Interpreter {
         parameters: &Box<Vec<Token>>,
         body: &mut Box<Vec<Stmt>>,
     ) -> Result<(), Error> {
-        todo!()
+        let function_name = name.clone();
+        let arity = parameters.len();
+
+        let function = Function::new(
+            function_name,
+            arity,
+            Rc::new(RefCell::new(Stmt::function(
+                name.clone(),
+                parameters.clone(),
+                body.clone(),
+            ))),
+        );
+        let mut environement = self.environment.borrow_mut();
+
+        environement.define(name.lexeme.clone(), Type::Function(Box::new(function)));
+        Ok(())
     }
 }

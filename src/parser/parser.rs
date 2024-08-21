@@ -1,4 +1,5 @@
 use super::{expr::*, stmt::*};
+use std::io::{self, Write};
 
 use crate::{error::*, lexer::token::*};
 
@@ -129,6 +130,10 @@ impl Parser {
             TokenType::Identifier,
             format!("Expected a {} name", callable_type),
         )?;
+        let _ = self.consume(
+            TokenType::LeftParen,
+            "Expected `(` after function name in declaration".to_string(),
+        );
 
         let mut parameters = Vec::new();
         if !self.check(TokenType::RightParen) {
@@ -146,12 +151,16 @@ impl Parser {
                 }
             }
 
-            self.consume(
+            let _ = self.consume(
                 TokenType::RightParen,
                 "Expected a `)` after parameters".to_string(),
             );
         }
 
+        let _ = self.consume(
+            TokenType::LeftBrace,
+            "Expected `{` in function declaration and define function block".to_string(),
+        );
         let body = self.block()?;
         Ok(Stmt::function(name, Box::new(parameters), Box::new(body)))
     }
@@ -467,7 +476,7 @@ impl Parser {
                     );
                 }
                 arguments.push(self.expression()?);
-                if self.match_next(vec![TokenType::Comma]) {
+                if !self.match_next(vec![TokenType::Comma]) {
                     break;
                 }
             }
@@ -516,7 +525,7 @@ impl Parser {
 
     // Move forward if "current" matches the type else error
     fn consume(&mut self, token_type: TokenType, message: String) -> Result<Token, Error> {
-        if self.check(token_type) {
+        if self.check(token_type.clone()) {
             return Ok(self.advance());
         }
         Err(self.push_error(message))

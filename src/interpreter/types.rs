@@ -31,22 +31,15 @@ pub trait Callable {
 pub struct Function {
     pub name: Token,
     pub arity: usize,
-    pub declaration: Rc<RefCell<Stmt>>,
+    pub declaration: Rc<RefCell<Stmt>>, // Function statement
 }
 
 impl Function {
-    pub fn new(
-        name: Token,
-        parameters: Option<Vec<Token>>,
-        declaration: Rc<RefCell<Stmt>>,
-    ) -> Function {
+    pub fn new(name: Token, arity: usize, declaration: Rc<RefCell<Stmt>>) -> Function {
         let declaration_borrowed = declaration.borrow();
         Function {
             name,
-            arity: match parameters {
-                Some(parameters) => parameters.len(),
-                None => 0,
-            },
+            arity,
             declaration: match &*declaration_borrowed {
                 Stmt::Function(_, _, _) => Rc::clone(&declaration),
                 _ => panic!("Tried to create a funciton with non funciton body"),
