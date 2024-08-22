@@ -40,12 +40,13 @@ impl Interpreter {
             "clock".to_string(),
             Type::NativeFunction(Box::new(NativeFunction::new("clock".to_string(), clock))),
         );
+        let globals = Rc::new(RefCell::new(globals));
 
         Interpreter {
-            globals: Rc::new(RefCell::new(globals)),
+            globals: Rc::clone(&globals),
             environment: Rc::new(RefCell::new(Environment::new(match enclosing {
                 Some(parent_environment) => Some(Rc::new(RefCell::new(parent_environment))),
-                None => None,
+                None => Some(Rc::clone(&globals)),
             }))),
         }
     }
@@ -132,7 +133,7 @@ impl Interpreter {
 
         self.environment = environment;
 
-        let mut return_value = None;
+        let return_value = None;
         for statement in (*statements).as_mut().iter_mut() {
             match self.execute(statement) {
                 Err(error) => {
@@ -141,7 +142,7 @@ impl Interpreter {
                 }
                 Ok(value) => {
                     if let Some(return_val) = value {
-                        return_value = Some(return_val)
+                        return Ok(Some(return_val));
                     }
                 }
             };
@@ -485,6 +486,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
         }
 
         Ok(None)
+ 
     }
 
     fn visit_function(
@@ -505,7 +507,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
                 body.clone(),
             ))),
         );
-        let mut environement = self.environment.borrow_mut();
+        let mut environement = self.globals.borrow_mut();
 
         environement.define(name.lexeme.clone(), Type::Function(Box::new(function)));
         Ok(None)

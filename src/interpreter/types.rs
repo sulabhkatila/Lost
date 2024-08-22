@@ -61,20 +61,25 @@ impl Callable for Function {
         let mut environment = Environment::new(Some(Rc::clone(&interpreter.globals)));
         let arguments = arguments.unwrap_or_else(|| Vec::<Type>::new());
 
-        match &mut *self.declaration.borrow_mut() {
+        let (name, parameters, body) = match &mut *self.declaration.borrow_mut() {
             Stmt::Function(name, parameters, body) => {
-                for i in 0..parameters.len() {
-                    environment.define(parameters[i].lexeme.clone(), arguments[i].clone())
-                }
-                match interpreter.execute_block(body, Rc::new(RefCell::new(environment)))? {
-                    Some(return_value) => Ok(return_value),
-                    None => Ok(Type::Nil),
-                }
+                (name.clone(), parameters.clone(), body.clone())
             }
-            _ => Err(Error::interpreter(
-                "Calling a non-callable".to_string(),
-                self.name.line,
-            )),
+            _ => {
+                return Err(Error::interpreter(
+                    "Calling a non-callable".to_string(),
+                    self.name.line,
+                ))
+            }
+        };
+
+        for i in 0..parameters.len() {
+            environment.define(parameters[i].lexeme.clone(), arguments[i].clone());
+        }
+
+        match interpreter.execute_block(&mut body.clone(), Rc::new(RefCell::new(environment)))? {
+            Some(return_value) => Ok(return_value),
+            None => Ok(Type::Nil),
         }
     }
 }

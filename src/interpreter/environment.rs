@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use super::types::Type;
 use crate::{error::*, lexer::token::Token};
 
+#[derive(Debug)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>, // Parent Environment
     values: HashMap<String, Type>,               // Current Scope
