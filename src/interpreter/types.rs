@@ -32,10 +32,11 @@ pub struct Function {
     pub name: Token,
     pub arity: usize,
     pub declaration: Rc<RefCell<Stmt>>, // Function statement
+    pub closure: Rc<RefCell<Environment>>,
 }
 
 impl Function {
-    pub fn new(name: Token, arity: usize, declaration: Rc<RefCell<Stmt>>) -> Function {
+    pub fn new(name: Token, arity: usize, declaration: Rc<RefCell<Stmt>>, closure: Rc<RefCell<Environment>>) -> Function {
         let declaration_borrowed = declaration.borrow();
         Function {
             name,
@@ -44,6 +45,7 @@ impl Function {
                 Stmt::Function(_, _, _) => Rc::clone(&declaration),
                 _ => panic!("Tried to create a funciton with non funciton body"),
             },
+            closure,
         }
     }
 }
@@ -58,7 +60,8 @@ impl Callable for Function {
         interpreter: &mut Interpreter,
         arguments: Option<Vec<Type>>,
     ) -> Result<Type, Error> {
-        let mut environment = Environment::new(Some(Rc::clone(&interpreter.globals)));
+        // let mut environment = Environment::new(Some(Rc::clone(&interpreter.globals)));
+        let mut environment = Environment::new(Some(Rc::clone(&self.closure)));
         let arguments = arguments.unwrap_or_else(|| Vec::<Type>::new());
 
         let (name, parameters, body) = match &mut *self.declaration.borrow_mut() {

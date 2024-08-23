@@ -506,6 +506,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
                 parameters.clone(),
                 body.clone(),
             ))),
+            Rc::clone(&self.environment)
         );
         let mut environement = self.globals.borrow_mut();
 

@@ -352,6 +352,9 @@ impl Parser {
             TokenType::RightBrace,
             "Expected `}` at the end of block".to_string(),
         )?;
+        for error in &self.errors {
+            error.report()
+        }
         Ok(statements)
     }
 
