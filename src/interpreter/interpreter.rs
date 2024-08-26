@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     cell::{Ref, RefCell},
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
@@ -110,16 +109,10 @@ impl Interpreter {
     pub fn is_truthly(&self, value: &Type) -> bool {
         match value {
             Type::String(_) => true,
-            Type::Number(val) => {
-                if *val == 0.0 {
-                    false
-                } else {
-                    true
-                }
-            }
+            Type::Number(val) => *val != 0.0,
             Type::Boolean(val) => *val,
-            Type::Function(fun) => todo!(),
-            Type::NativeFunction(fun) => todo!(),
+            Type::Function(_fun) => todo!(),
+            Type::NativeFunction(_fun) => todo!(),
             Type::Nil => false,
         }
     }
@@ -416,7 +409,8 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
 
 impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
     fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> Result<Option<Type>, Error> {
-        self.execute_block(statements, Rc::clone(&self.environment))?;
+        let new_env = Environment::new(Some(Rc::clone(&self.environment)));
+        self.execute_block(statements, Rc::new(RefCell::new(new_env)))?;
         Ok(None)
     }
 
@@ -486,7 +480,6 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
         }
 
         Ok(None)
- 
     }
 
     fn visit_function(
@@ -506,7 +499,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
                 parameters.clone(),
                 body.clone(),
             ))),
-            Rc::clone(&self.environment)
+            Rc::clone(&self.environment),
         );
         let mut environement = self.globals.borrow_mut();
 
