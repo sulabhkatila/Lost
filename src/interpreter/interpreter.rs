@@ -1,5 +1,7 @@
 use std::{
+    borrow::BorrowMut,
     cell::{Ref, RefCell},
+    ops::Deref,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -100,6 +102,7 @@ impl Interpreter {
             },
             Type::Function(fun) => todo!(),
             Type::NativeFunction(fun) => todo!(),
+            Type::Class(class) => todo!(),
         }
     }
 
@@ -111,8 +114,9 @@ impl Interpreter {
             Type::String(_) => true,
             Type::Number(val) => *val != 0.0,
             Type::Boolean(val) => *val,
-            Type::Function(_fun) => todo!(),
-            Type::NativeFunction(_fun) => todo!(),
+            Type::Function(fun) => todo!(),
+            Type::NativeFunction(fun) => todo!(),
+            Type::Class(class) => todo!(),
             Type::Nil => false,
         }
     }
@@ -414,6 +418,23 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
         Ok(None)
     }
 
+    fn visit_class(
+        &mut self,
+        name: &Token,
+        statements: &mut Box<Vec<Stmt>>,
+    ) -> Result<Option<Type>, Error> {
+        self.environment
+            .deref()
+            .borrow_mut()
+            .define(name.lexeme.clone(), Type::Nil);
+        let class = Box::new(Class::new(name.lexeme.clone()));
+        self.environment
+            .deref()
+            .borrow_mut()
+            .assign(name, Type::Class(class));
+        Ok(None)
+    }
+
     fn visit_expression(&mut self, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
         let _ = self.evaluate(expr)?;
 
@@ -501,9 +522,9 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
             ))),
             Rc::clone(&self.environment),
         );
-        let mut environement = self.globals.borrow_mut();
+        let mut environment = self.globals.deref().borrow_mut();
 
-        environement.define(name.lexeme.clone(), Type::Function(Box::new(function)));
+        environment.define(name.lexeme.clone(), Type::Function(Box::new(function)));
         Ok(None)
     }
 

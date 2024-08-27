@@ -12,16 +12,17 @@ use lost::{
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
-    if argv.len() > 2 {
-        writeln!(io::stderr(), "Usage: {} [script]", argv[0]).unwrap();
-        return;
-    } else if argv.len() == 2 {
-        // Run code from the given file
-        run_file(&argv[1]);
-    } else {
-        // Run REPL
-        // > ...
-        run_prompt();
+
+    match argv.len() {
+        1 => {
+            // Run Repl
+            // > ...
+            run_prompt();
+        }
+        2 => run_file(&argv[1]),
+        _ => {
+            eprintln!("Usage: {} [script]", argv[0]);
+        }
     }
 }
 
@@ -30,8 +31,8 @@ fn run_file(filepath: &String) {
     let source_code = match fs::read_to_string(filepath) {
         Ok(file) => file,
         _ => {
-            writeln!(io::stderr(), "`{filepath}` does not exist").unwrap();
-            return; // Quit if no file
+            eprintln!("`{filepath}` does not exist");
+            return;
         }
     };
 

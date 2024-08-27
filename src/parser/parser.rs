@@ -1,5 +1,8 @@
 use super::{expr::*, stmt::*};
-use std::io::{self, Write};
+use std::{
+    default,
+    io::{self, Write},
+};
 
 use crate::{error::*, lexer::token::*};
 
@@ -15,8 +18,9 @@ pub struct Parser {
 
     program     -> declaration* EOF ;
 
-    declaration -> fun_declaration | var_declaration | statement ;
+    declaration -> class_declaration | fun_declaration | var_declaration | statement ;
 
+    class_declaration  -> "class" IDENTIFIER "{" function* "}" ;
     fun_declaration    -> "fun" function ;
     function           -> IDENTIFIER "(" parameters? ")" block ;
     parameters         -> IDENTIFIER ( "," IDENTIFIER )* ;
@@ -109,16 +113,41 @@ impl Parser {
         }
     }
 
-    // declaration -> fun_declaration | var_declaration | statement ;
+    // declaration -> class_declaration | fun_declaration | var_declaration | statement ;
     // just a special statement
     fn declaration(&mut self) -> Result<Stmt, Error> {
         if self.match_next(vec![TokenType::Fun]) {
-            Ok(self.fun_declaration()?)
+            self.fun_declaration()
+        } else if self.match_next(vec![TokenType::Class]) {
+            self.class_declaration()
         } else if self.match_next(vec![TokenType::Var]) {
-            Ok(self.var_declaration()?)
+            self.var_declaration()
         } else {
-            Ok(self.statement()?)
+            self.statement()
         }
+    }
+
+    // class_declaration -> "class" IDENTIFIER "{" function* "}" ;
+    fn class_declaration(&mut self) -> Result<Stmt, Error> {
+        let class_name = self.consume(
+            TokenType::Identifier,
+            "Expected the class name Identifier after keyword `class`".to_string(),
+        )?;
+        let starting_brace = self.consume(
+            TokenType::LeftBrace,
+            "Expected `{` before class body".to_string(),
+        )?;
+
+        let mut methods = Box::<Vec<Stmt>>::default();
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            methods.push(self.function("method".to_string())?)
+        }
+
+        self.consume(
+            TokenType::RightBrace,
+            "Expected `}` after method body".to_string(),
+        )?;
+        Ok(Stmt::class(class_name, methods))
     }
 
     // fun_declaration -> "fun" IDENTIFIER "(" parameters ")" block ;

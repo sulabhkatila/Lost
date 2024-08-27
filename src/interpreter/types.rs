@@ -36,7 +36,12 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(name: Token, arity: usize, declaration: Rc<RefCell<Stmt>>, closure: Rc<RefCell<Environment>>) -> Function {
+    pub fn new(
+        name: Token,
+        arity: usize,
+        declaration: Rc<RefCell<Stmt>>,
+        closure: Rc<RefCell<Environment>>,
+    ) -> Function {
         let declaration_borrowed = declaration.borrow();
         Function {
             name,
@@ -134,12 +139,30 @@ impl ToString for NativeFunction {
 }
 
 #[derive(Debug, Clone)]
+pub struct Class {
+    pub name: String,
+}
+
+impl Class {
+    pub fn new(name: String) -> Class {
+        Class { name }
+    }
+}
+
+impl ToString for Class {
+    fn to_string(&self) -> String {
+        self.name.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Type {
     String(String),
     Number(f32),
     Boolean(bool),
     Function(Box<Function>),
     NativeFunction(Box<NativeFunction>),
+    Class(Box<Class>),
     Nil,
 }
 
@@ -151,6 +174,7 @@ impl Type {
             Type::Boolean(val) => val.to_string(),
             Type::Function(fun) => fun.to_string(),
             Type::NativeFunction(fun) => fun.to_string(),
+            Type::Class(class) => class.to_string(),
             Type::Nil => "nil".to_string(),
         }
     }
@@ -164,6 +188,7 @@ impl fmt::Display for Type {
             Type::Boolean(val) => write!(f, "{}", val),
             Type::Function(fun) => write!(f, "Function <{}>", fun.to_string()),
             Type::NativeFunction(fun) => write!(f, "Native Function <{}>", fun.to_string()),
+            Type::Class(class) => write!(f, "Class <{}>", class.to_string()),
             Type::Nil => write!(f, "nil"),
         }
     }
