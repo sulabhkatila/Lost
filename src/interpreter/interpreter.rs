@@ -103,6 +103,7 @@ impl Interpreter {
             Type::Function(fun) => todo!(),
             Type::NativeFunction(fun) => todo!(),
             Type::Class(class) => todo!(),
+            Type::Instance(instance) => todo!(),
         }
     }
 
@@ -117,6 +118,7 @@ impl Interpreter {
             Type::Function(fun) => todo!(),
             Type::NativeFunction(fun) => todo!(),
             Type::Class(class) => todo!(),
+            Type::Instance(instance) => todo!(),
             Type::Nil => false,
         }
     }
@@ -401,6 +403,16 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
                         closing_paren.line,
                     ));
                 }
+                to_call.call(self, None)
+            }
+            Type::Class(to_call) => {
+                if evaluated_arguments.len() != 0 {
+                    return Err(Error::interpreter(
+                        "Number of arguments does not match number of parameters".to_string(),
+                        closing_paren.line,
+                    ));
+                }
+
                 to_call.call(self, None)
             }
             _ => Err(Error::interpreter(

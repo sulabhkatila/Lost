@@ -9,7 +9,13 @@ string      String
 
 */
 
-use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::{self, write},
+    rc::Rc,
+    time::Instant,
+};
 
 use crate::{error::Error, lexer::token::Token, parser::stmt::Stmt};
 
@@ -139,13 +145,45 @@ impl ToString for NativeFunction {
 }
 
 #[derive(Debug, Clone)]
+pub struct Instance {
+    class: Class,
+}
+
+impl Instance {
+    pub fn new(class: Class) -> Instance {
+        Instance { class }
+    }
+}
+
+impl ToString for Instance {
+    fn to_string(&self) -> String {
+        self.class.name.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
+    arity: usize,
 }
 
 impl Class {
     pub fn new(name: String) -> Class {
-        Class { name }
+        Class { name, arity: 0 }
+    }
+}
+
+impl Callable for Class {
+    fn arity(&self) -> usize {
+        self.arity
+    }
+
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Option<Vec<Type>>,
+    ) -> Result<Type, Error> {
+        Ok(Type::Instance(Box::new(Instance::new(self.clone()))))
     }
 }
 
@@ -163,6 +201,7 @@ pub enum Type {
     Function(Box<Function>),
     NativeFunction(Box<NativeFunction>),
     Class(Box<Class>),
+    Instance(Box<Instance>),
     Nil,
 }
 
@@ -175,6 +214,7 @@ impl Type {
             Type::Function(fun) => fun.to_string(),
             Type::NativeFunction(fun) => fun.to_string(),
             Type::Class(class) => class.to_string(),
+            Type::Instance(instance) => instance.to_string(),
             Type::Nil => "nil".to_string(),
         }
     }
@@ -189,6 +229,7 @@ impl fmt::Display for Type {
             Type::Function(fun) => write!(f, "Function <{}>", fun.to_string()),
             Type::NativeFunction(fun) => write!(f, "Native Function <{}>", fun.to_string()),
             Type::Class(class) => write!(f, "Class <{}>", class.to_string()),
+            Type::Instance(instance) => write!(f, "Instance of <{}>", instance.to_string()),
             Type::Nil => write!(f, "nil"),
         }
     }
