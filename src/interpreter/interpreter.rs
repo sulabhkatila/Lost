@@ -1,6 +1,8 @@
 use std::{
     borrow::BorrowMut,
     cell::{Ref, RefCell},
+    clone,
+    collections::HashMap,
     ops::Deref,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
@@ -9,7 +11,7 @@ use std::{
 use super::{environment::*, types::*};
 
 use crate::{
-    error::*,
+    error::{Error, *},
     lexer::token::*,
     parser::{
         expr::{Visitor as ExpressionVisitor, *},
@@ -254,29 +256,57 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
         self.evaluate(grouping_expr)
     }
 
+    fn visit_get(&mut self, expr: &mut Box<Expr>, name: &Token) -> Result<Type, Error> {
+        let mut object = self.evaluate(expr)?;
+        match object {
+            Type::Instance(mut instance) => instance.get(name),
+            _ => Err(Error::interpreter(
+                "Only instances have properties".to_string(),
+                name.line,
+            )),
+        }
+    }
+
+    fn visit_set(
+        &mut self,
+        expr: &mut Box<Expr>,
+        name: &Token,
+        value: &mut Box<Expr>,
+    ) -> Result<Type, Error> {
+        let object = self.evaluate(expr)?;
+
+        match object {
+            Type::Instance(mut instance) => {
+                let value = self.evaluate(value)?;
+                instance.set(name, &value);
+                Ok(Type::Nil)
+            }
+            _ => Err(Error::interpreter(
+                "Only instances have fields".to_string(),
+                name.line,
+            )),
+        }
+    }
+
     fn visit_unary(&mut self, operator: &Token, unary_expr: &mut Box<Expr>) -> Result<Type, Error> {
         let right = self.evaluate(unary_expr)?;
 
         let line = operator.line;
         match operator.token_type {
-            TokenType::Minus => {
-                return Ok(Type::Number(match right {
-                    Type::Number(val) => -val,
-                    _ => {
-                        return Err(Error::interpreter(
-                            format!("Expected Number, got {}", right),
-                            line,
-                        ))
-                    }
-                }))
-            }
-            TokenType::Bang => return Ok(Type::Boolean(!self.is_truthly(&right))),
-            _ => {
-                return Err(Error::interpreter(
-                    format!("Expected `!` or `-`, got {}", operator),
-                    line,
-                ))
-            }
+            TokenType::Minus => Ok(Type::Number(match right {
+                Type::Number(val) => -val,
+                _ => {
+                    return Err(Error::interpreter(
+                        format!("Expected Number, got {}", right),
+                        line,
+                    ))
+                }
+            })),
+            TokenType::Bang => Ok(Type::Boolean(!self.is_truthly(&right))),
+            _ => Err(Error::interpreter(
+                format!("Expected `!` or `-`, got {}", operator),
+                line,
+            )),
         }
     }
 
@@ -439,7 +469,28 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
             .deref()
             .borrow_mut()
             .define(name.lexeme.clone(), Type::Nil);
-        let class = Box::new(Class::new(name.lexeme.clone()));
+
+        let mut methods = HashMap::<String, Function>::new();
+        for method in statements.iter() {
+            let (method_name, arity) = match method {
+                Stmt::Function(m_name, parameters, _) => (m_name.lexeme.clone(), parameters.len()),
+                _ => {
+                    return Err(Error::interpreter(
+                        "Method is not a function statement".to_string(),
+                        name.line,
+                    ))
+                }
+            };
+            let function = Function::new(
+                name.clone(),
+                arity,
+                Rc::new(RefCell::new(method.clone())),
+                Rc::clone(&self.environment),
+            );
+            methods.insert(method_name, function);
+        }
+
+        let class = Box::new(Class::new(name.lexeme.clone(), methods));
         self.environment
             .deref()
             .borrow_mut()

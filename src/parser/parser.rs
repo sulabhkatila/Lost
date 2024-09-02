@@ -2,6 +2,7 @@ use super::{expr::*, stmt::*};
 use std::{
     default,
     io::{self, Write},
+    ops::Deref,
 };
 
 use crate::{error::*, lexer::token::*};
@@ -41,7 +42,7 @@ pub struct Parser {
     print_statement         -> "print" expression ";" ;
 
     expression  -> assignment ;
-    assignment  -> IDENTIFIER "=" assignment | logic_or ;
+    assignment  -> ( call "." )? IDENTIFIER "=" assignment | logic_or ;
     logic_or    -> logic_and ( "or" logic_and )* ;
     logic_and   -> equality ( "and" equality )* ;
     equality    -> comparison ( ( "!=" | "==" ) comparison )* ;
@@ -50,7 +51,7 @@ pub struct Parser {
     factor      -> unary ( ( "/" | "*" ) unary )* ;
     unary       -> ( "!" | "-" ) unary
                 | call ;
-    call        -> primary ( "(" arguments? ")" )* ;
+    call        -> primary ( "(" arguments? ")" | "." IDENTIFUER )* ;
     arguments   -> expression ( "," expression )* ;
     primary     -> NUMBER | STRING | IDENTIFIER | "true" | "false"
                 | "nil" | "(" expression ")";
@@ -410,7 +411,7 @@ impl Parser {
         self.assignment()
     }
 
-    // assignment  -> IDENTIFIER "=" assignment | logic_or ;
+    // assignment  -> ( call "." )? IDENTIFIER "=" assignment | logic_or ;
     fn assignment(&mut self) -> Result<Expr, Error> {
         let left_side_identifier = self.logic_or()?;
 
@@ -419,7 +420,14 @@ impl Parser {
             let right_side_expr = self.assignment()?;
 
             match left_side_identifier {
-                Expr::Variable(token) => return Ok(Expr::Assign(token, Box::new(right_side_expr))),
+                Expr::Variable(token) => return Ok(Expr::assign(token, right_side_expr)),
+                Expr::Get(expression, token) => {
+                    return Ok(Expr::set(
+                        expression.deref().clone(),
+                        token,
+                        right_side_expr,
+                    ))
+                }
                 _ => {
                     return Err(self.push_error("Invalid assignment target".to_string()));
                 }
@@ -507,13 +515,19 @@ impl Parser {
         self.call()
     }
 
-    // call  -> primary ( "(" arguments? ")" )* ;
+    // call  -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
     fn call(&mut self) -> Result<Expr, Error> {
         let mut expression = self.primary()?;
 
         loop {
             if self.match_next(vec![TokenType::LeftParen]) {
                 expression = self.finish_call(expression)?;
+            } else if self.match_next(vec![TokenType::Dot]) {
+                let name = self.consume(
+                    TokenType::Identifier,
+                    "Expeceted property name after `.`".to_string(),
+                )?;
+                expression = Expr::get(expression, name)
             } else {
                 break;
             }

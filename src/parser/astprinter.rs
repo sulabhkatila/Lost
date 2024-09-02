@@ -40,6 +40,14 @@ impl Visitor<String> for AstPrinter {
         format!("{}({})", callee.accept(self), comma_seperated_arguments)
     }
 
+    fn visit_get(&mut self, expr: &mut Box<Expr>, name: &Token) -> String {
+        String::from("I dont care")
+    }
+
+    fn visit_set(&mut self, expr: &mut Box<Expr>, name: &Token, value: &mut Box<Expr>) -> String {
+        String::from("I dont care again")
+    }
+
     fn visit_grouping(&mut self, grouping_expr: &mut Box<Expr>) -> String {
         format!("({})", grouping_expr.accept(self))
     }

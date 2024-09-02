@@ -147,11 +147,35 @@ impl ToString for NativeFunction {
 #[derive(Debug, Clone)]
 pub struct Instance {
     class: Class,
+    fields: HashMap<String, Type>,
 }
 
 impl Instance {
     pub fn new(class: Class) -> Instance {
-        Instance { class }
+        Instance {
+            class,
+            fields: HashMap::new(),
+        }
+    }
+
+    pub fn get(&mut self, name: &Token) -> Result<Type, Error> {
+        if let Some(val) = self.fields.get(&name.lexeme) {
+            return Ok(val.clone());
+        }
+
+        if let Some(method) = self.class.find_method(&name.lexeme) {
+            let method = Type::Function(Box::new(method));
+            return Ok(method);
+        }
+
+        Err(Error::interpreter(
+            "Property does not exist".to_string(),
+            name.line,
+        ))
+    }
+
+    pub fn set(&mut self, name: &Token, value: &Type) {
+        self.fields.insert(name.lexeme.clone(), value.clone());
     }
 }
 
@@ -165,11 +189,20 @@ impl ToString for Instance {
 pub struct Class {
     pub name: String,
     arity: usize,
+    methods: HashMap<String, Function>,
 }
 
 impl Class {
-    pub fn new(name: String) -> Class {
-        Class { name, arity: 0 }
+    pub fn new(name: String, methods: HashMap<String, Function>) -> Class {
+        Class {
+            name,
+            arity: 0,
+            methods,
+        }
+    }
+
+    fn find_method(&self, method_name: &String) -> Option<Function> {
+        self.methods.get(method_name).cloned()
     }
 }
 

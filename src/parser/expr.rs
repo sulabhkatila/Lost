@@ -11,6 +11,8 @@ pub enum Expr {
     //      ...             ...
     Binary(Box<Expr>, Token, Box<Expr>),
     Call(Box<Expr>, Token, Box<Vec<Expr>>),
+    Get(Box<Expr>, Token),
+    Set(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
     Unary(Token, Box<Expr>),
     Literal(Token),
@@ -28,6 +30,14 @@ impl Expr {
 
     pub fn call(callee: Expr, closing_paren: Token, arguments: Vec<Expr>) -> Expr {
         Expr::Call(Box::new(callee), closing_paren, Box::new(arguments))
+    }
+
+    pub fn get(object: Expr, name: Token) -> Expr {
+        Expr::Get(Box::new(object), name)
+    }
+
+    pub fn set(object: Expr, name: Token, value: Expr) -> Expr {
+        Expr::Set(Box::new(object), name, Box::new(value))
     }
 
     pub fn grouping(expr: Expr) -> Expr {
@@ -49,6 +59,10 @@ impl Expr {
     pub fn variable(variable_name: Token) -> Expr {
         Expr::Variable(variable_name)
     }
+
+    pub fn assign(token: Token, expression: Expr) -> Expr {
+        Expr::Assign(token, Box::new(expression))
+    }
 }
 
 pub trait Visitable<T> {
@@ -62,6 +76,8 @@ impl<T> Visitable<T> for Expr {
             Expr::Call(callee, closing_paren, arguments) => {
                 visitor.visit_call(callee, closing_paren, arguments)
             }
+            Expr::Get(expr, name) => visitor.visit_get(expr, name),
+            Expr::Set(expr, name, value) => visitor.visit_set(expr, name, value),
             Expr::Grouping(expr) => visitor.visit_grouping(expr),
             Expr::Unary(operator, right) => visitor.visit_unary(operator, right),
             Expr::Literal(lit) => visitor.visit_literal(lit),
@@ -99,4 +115,6 @@ pub trait Visitor<T> {
     ) -> T;
     fn visit_variable(&mut self, variable: &Token) -> T;
     fn visit_assign(&mut self, variable: &Token, expr: &mut Box<Expr>) -> T;
+    fn visit_get(&mut self, expr: &mut Box<Expr>, name: &Token) -> T;
+    fn visit_set(&mut self, expr: &mut Box<Expr>, name: &Token, value: &mut Box<Expr>) -> T;
 }
