@@ -189,20 +189,35 @@ impl ToString for Instance {
 pub struct Class {
     pub name: String,
     arity: usize,
+    superclass: Option<Box<Class>>,
     methods: HashMap<String, Function>,
 }
 
 impl Class {
-    pub fn new(name: String, methods: HashMap<String, Function>) -> Class {
+    pub fn new(
+        name: String,
+        superclass: Option<Box<Class>>,
+        methods: HashMap<String, Function>,
+    ) -> Class {
         Class {
             name,
             arity: 0,
+            superclass,
             methods,
         }
     }
 
     fn find_method(&self, method_name: &String) -> Option<Function> {
-        self.methods.get(method_name).cloned()
+        match self.methods.get(method_name).cloned() {
+            Some(method) => Some(method),
+            None => {
+                if let Some(parent) = &self.superclass {
+                    parent.find_method(method_name)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 

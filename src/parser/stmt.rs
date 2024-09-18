@@ -5,7 +5,7 @@ use crate::lexer::token::*;
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Block(Box<Vec<Stmt>>),
-    Class(Token, Box<Vec<Stmt>>),
+    Class(Token, Option<Box<Expr>>, Box<Vec<Stmt>>),
     Expression(Box<Expr>),
     Function(Token, Box<Vec<Token>>, Box<Vec<Stmt>>),
     IfElse(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>), // Condition, Then_branch, Else_branch
@@ -20,8 +20,8 @@ impl Stmt {
         Stmt::Block(statements)
     }
 
-    pub fn class(name: Token, statements: Box<Vec<Stmt>>) -> Stmt {
-        Stmt::Class(name, statements)
+    pub fn class(name: Token, super_class: Option<Box<Expr>>, statements: Box<Vec<Stmt>>) -> Stmt {
+        Stmt::Class(name, super_class, statements)
     }
 
     pub fn expression(expr: Box<Expr>) -> Stmt {
@@ -64,7 +64,9 @@ impl<T> Visitable<T> for Stmt {
     fn accept(&mut self, visitor: &mut impl Visitor<T>) -> T {
         match self {
             Stmt::Block(statements) => visitor.visit_block(statements),
-            Stmt::Class(name, statements) => visitor.visit_class(name, statements),
+            Stmt::Class(name, superclass, statements) => {
+                visitor.visit_class(name, superclass, statements)
+            }
             Stmt::Expression(expr) => visitor.visit_expression(expr),
             Stmt::Function(name, parameters, body) => {
                 visitor.visit_function(name, parameters, body)
@@ -83,7 +85,12 @@ impl<T> Visitable<T> for Stmt {
 // Any Visitor class to Stmt must implement Visitor trait
 pub trait Visitor<T> {
     fn visit_block(&mut self, statements: &mut Box<Vec<Stmt>>) -> T;
-    fn visit_class(&mut self, name: &Token, statements: &mut Box<Vec<Stmt>>) -> T;
+    fn visit_class(
+        &mut self,
+        name: &Token,
+        superclass: &mut Option<Box<Expr>>,
+        statements: &mut Box<Vec<Stmt>>,
+    ) -> T;
     fn visit_expression(&mut self, expr: &Box<Expr>) -> T;
     fn visit_ifelse(
         &mut self,

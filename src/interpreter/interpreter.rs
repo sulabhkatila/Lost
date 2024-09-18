@@ -1,7 +1,5 @@
 use std::{
-    borrow::BorrowMut,
-    cell::{Ref, RefCell},
-    clone,
+    cell::RefCell,
     collections::HashMap,
     ops::Deref,
     rc::Rc,
@@ -11,7 +9,7 @@ use std::{
 use super::{environment::*, types::*};
 
 use crate::{
-    error::{Error, *},
+    error::Error,
     lexer::token::*,
     parser::{
         expr::{Visitor as ExpressionVisitor, *},
@@ -202,12 +200,10 @@ impl ExpressionVisitor<Result<Type, Error>> for Interpreter {
                     _ => match self.get_number_or_return_error(right_value.clone(), line) {
                         // Left is a String,
                         // so right needs to be a String
-                        Ok(_) => {
-                            return Err(Error::interpreter(
-                                format!("Expected String, got {}", right_value),
-                                line,
-                            ))
-                        }
+                        Ok(_) => Err(Error::interpreter(
+                            format!("Expected String, got {}", right_value),
+                            line,
+                        )),
                         _ => {
                             return Ok(Type::String(format!(
                                 "{}{}",
@@ -463,8 +459,30 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
     fn visit_class(
         &mut self,
         name: &Token,
+        superclass: &mut Option<Box<Expr>>,
         statements: &mut Box<Vec<Stmt>>,
     ) -> Result<Option<Type>, Error> {
+        let mut parent = None;
+        if let Some(parent_) = superclass {
+            parent = Some(self.evaluate(parent_)?);
+            match parent {
+                Some(parent) => match parent {
+                    Type::Class(_) => {}
+                    _ => {
+                        return Err(Error::interpreter(
+                            "Superclass must be a class".to_string(),
+                            name.line,
+                        ))
+                    }
+                },
+                None => {
+                    return Err(Error::interpreter(
+                        "How did this happen?".to_string(),
+                        name.line,
+                    ))
+                }
+            }
+        }
         self.environment
             .deref()
             .borrow_mut()
@@ -490,7 +508,25 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
             methods.insert(method_name, function);
         }
 
-        let class = Box::new(Class::new(name.lexeme.clone(), methods));
+        let superclass = match superclass {
+            Some(some_parent) => Some(self.evaluate(some_parent)?),
+            None => None,
+        };
+
+        let parent = match superclass {
+            Some(parent_val) => match parent_val {
+                Type::Class(parent_class) => Some(parent_class),
+                _ => {
+                    return Err(Error::interpreter(
+                        "Sueprclass must be a class".to_string(),
+                        name.line,
+                    ))
+                }
+            },
+            None => None,
+        };
+
+        let class = Box::new(Class::new(name.lexeme.clone(), parent, methods));
         self.environment
             .deref()
             .borrow_mut()
@@ -545,7 +581,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
         } else {
             match else_branch {
                 Some(else_branch) => self.execute(&mut (**else_branch).clone()),
-                _ => return Ok(None),
+                _ => Ok(None),
             }
         }
     }
@@ -591,7 +627,7 @@ impl StatementVisitor<Result<Option<Type>, Error>> for Interpreter {
         Ok(None)
     }
 
-    fn visit_return(&mut self, token: &Token, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
+    fn visit_return(&mut self, _token: &Token, expr: &Box<Expr>) -> Result<Option<Type>, Error> {
         Ok(Some(self.evaluate(expr)?))
     }
 }

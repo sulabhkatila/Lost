@@ -1,6 +1,5 @@
 use super::{expr::*, stmt::*};
 use std::{
-    default,
     io::{self, Write},
     ops::Deref,
 };
@@ -21,7 +20,7 @@ pub struct Parser {
 
     declaration -> class_declaration | fun_declaration | var_declaration | statement ;
 
-    class_declaration  -> "class" IDENTIFIER "{" function* "}" ;
+    class_declaration  -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" function* "}" ;
     fun_declaration    -> "fun" function ;
     function           -> IDENTIFIER "(" parameters? ")" block ;
     parameters         -> IDENTIFIER ( "," IDENTIFIER )* ;
@@ -128,12 +127,18 @@ impl Parser {
         }
     }
 
-    // class_declaration -> "class" IDENTIFIER "{" function* "}" ;
+    // class_declaration -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" function* "}" ;
     fn class_declaration(&mut self) -> Result<Stmt, Error> {
         let class_name = self.consume(
             TokenType::Identifier,
             "Expected the class name Identifier after keyword `class`".to_string(),
         )?;
+
+        let mut superclass = None;
+        if self.match_next(vec![TokenType::Less]) {
+            self.consume(TokenType::Identifier, "Expect superclass name".to_string())?;
+            superclass = Some(Box::new(Expr::variable(self.previous())));
+        }
         let starting_brace = self.consume(
             TokenType::LeftBrace,
             "Expected `{` before class body".to_string(),
@@ -148,7 +153,7 @@ impl Parser {
             TokenType::RightBrace,
             "Expected `}` after method body".to_string(),
         )?;
-        Ok(Stmt::class(class_name, methods))
+        Ok(Stmt::class(class_name, superclass, methods))
     }
 
     // fun_declaration -> "fun" IDENTIFIER "(" parameters ")" block ;
